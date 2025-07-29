@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Import Words from JSON</h2>
+<form action="/admin/importwords" method="post" enctype="multipart/form-data">
+    <input type="file" name="file" accept="application/json" required>
+    <button type="submit">Import</button>
+</form>
+{% if message %}
+    <p>{{ message }}</p>
+{% endif %}
+<a href="/admin">Back to Admin Home</a>
+{% endblock %}
