@@ -39,10 +39,12 @@ This backend supports a spell learning app that:
 
 ## 🗃️ Data Models
 
+
 ### 1. User
 
 | Field         | Type    | Required | Description               |
 | ------------- | ------- | -------- | ------------------------- |
+| id            | int     | ✅        | Primary key, auto-increment|
 | name          | string  | ✅        | Unique user identifier    |
 | age           | integer | ❌        | User age                  |
 | email         | string  | ❌        | Email address             |
@@ -53,6 +55,7 @@ This backend supports a spell learning app that:
 
 ---
 
+
 ### 2. SpellingWord
 
 | Field        | Type   | Required | Description                         |
@@ -61,18 +64,39 @@ This backend supports a spell learning app that:
 | text         | string | ✅        | Word or sentence                    |
 | language     | string | ❌        | "en", "zh", "other"                 |
 | created\_by  | string | ❌        | "admin" or user name                |
-| is\_personal | bool   | ❌        | Whether visible only to the creator |
-| tags         | list   | ✅        | Associated tags                     |
 
 ---
 
+
 ### 3. Tag
 
-- Arbitrary and Anki-compatible
-- Examples:
+| Field        | Type   | Required | Description                         |
+| ------------ | ------ | -------- | ----------------------------------- |
+| id           | int    | ✅        | Primary key                         |
+| tag          | string | ✅        | Tag name (arbitrary, Anki-compatible)|
+| created_by   | int or "admin" | ✅ | Owner (user id or "admin")          |
+| description  | string | ❌        | Tag description                     |
+
+Examples:
   - `school::ABCPrimary`
   - `grade::Primary1`
   - `term::Term2`
+
+### 4. UserTagsLink
+
+| Field    | Type | Required | Description                |
+|----------|------|----------|----------------------------|
+| id       | int  | ✅        | Primary key                |
+| user_id  | int  | ✅        | Foreign key to User        |
+| tag_id   | int  | ✅        | Foreign key to Tag         |
+
+### 5. WordTagLink
+
+| Field    | Type | Required | Description                |
+|----------|------|----------|----------------------------|
+| id       | int  | ✅        | Primary key                |
+| word_id  | int  | ✅        | Foreign key to SpellingWord|
+| tag_id   | int  | ✅        | Foreign key to Tag         |
 
 ---
 
@@ -143,16 +167,36 @@ This backend supports a spell learning app that:
 
 ---
 
+
 ## 📋 Business Logic Summary
 
-- Users are identified by **name only**
+- Users are identified by **name** (plus auto-incremented id)
 - No password or auth system required
 - Words can be **admin or user-owned**, text only
-- **Multiple tags per word** are supported
+- **Tags are managed via Tag, UserTagsLink, and WordTagLink tables**
+- When adding a word:
+  - Add to SpellingWord if not exist
+  - Add tag to Tag if not exist
+  - Add UserTagsLink if user does not have tag
+  - Add WordTagLink if word-tag link does not exist
+  - If word exists, still add tag, UserTagsLink, and WordTagLink if not exist
+- When deleting a word (admin only):
+  - Remove from SpellingWord and WordTagLink
+  - If tag is no longer linked to any word, remove from Tag and UserTagsLink
+- Tag assignment:
+  - User can assign existing tags to self (creates UserTagsLink)
+- Tag unassignment:
+  - User can unassign tags (removes UserTagsLink)
+- Tag deletion:
+  - Only owner can delete
+  - If other users still use tag, change owner to "admin"
+  - If no other users, remove tag from Tag and WordTagLink
+- Tag editing:
+  - Only owner can edit tag info
 - **Each study earns 1 point**
 - **Points can be redeemed** and deducted
 - All actions are logged for transparency
-- Words are filtered via **flat tag system**
+- Words are filtered via **tag system**
 
 ---
 

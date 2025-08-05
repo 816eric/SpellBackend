@@ -44,7 +44,7 @@ class UserManager:
         return user.dict()
 
     def get_user(self, name: str):
-        return self.session.get(User, name)
+        return self.session.exec(select(User).where(User.name == name)).first()
 
     def log_login(self, name: str):
         login = LoginHistory(user_name=name, timestamp=datetime.now())

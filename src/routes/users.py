@@ -24,6 +24,7 @@ from fastapi import Body
 # Update user profile
 @router.put("/{name}/profile")
 def update_user_profile(name: str, profile: dict = Body(...)):
+    profile.pop("name", None)  # Remove 'name' if present to avoid conflict
     with get_session() as session:
         manager = UserManager(session)
         return manager.update_user_profile(name, **profile)
