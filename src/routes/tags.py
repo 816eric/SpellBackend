@@ -93,6 +93,11 @@ def get_user_tags(user_name: str):
         if not user:
             return []
         return TagManager.get_tags_by_user(user.id)
+    
+# Get all tags
+@router.get("/all", response_model=List[Tag])
+def get_all_tags():
+    return TagManager.get_all_tags()
 
 
 @router.post("/user/{user_name}/create", response_model=Tag)

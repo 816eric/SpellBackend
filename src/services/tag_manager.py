@@ -10,6 +10,11 @@ from ..models.link import UserTagsLink, WordTagLink
 class TagManager:
 
     @staticmethod
+    def get_all_tags():
+        with get_session() as session:
+            return session.exec(select(Tag)).all()
+
+    @staticmethod
     def assign_tag_to_user(user_id: int, tag_id: int):
         """Assign an existing tag to a user (create UserTagsLink if not present)."""
         with get_session() as session:
