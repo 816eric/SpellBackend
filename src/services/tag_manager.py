@@ -116,7 +116,3 @@ class TagManager:
             tags = session.exec(select(Tag).where(Tag.id.in_(tag_ids))).all()
             return tags
 
-    @staticmethod
-    def get_all_admin_tags():
-        with get_session() as session:
-            return session.exec(select(Tag).where(Tag.created_by == "admin")).all()

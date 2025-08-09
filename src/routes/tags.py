@@ -81,10 +81,6 @@ def edit_tag(user_name: str, tag_id: int, new_tag: str, new_description: str = "
         return tag
 
 
-@router.get("/admin", response_model=List[Tag])
-def get_admin_tags():
-    return TagManager.get_all_admin_tags()
-
 
 @router.get("/user/{user_name}", response_model=List[Tag])
 def get_user_tags(user_name: str):

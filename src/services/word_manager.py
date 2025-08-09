@@ -43,7 +43,7 @@ class WordManager:
         return self.session.get(SpellingWord, word_id)
 
     def get_words_by_user_and_tags(self, user_id: int, tags: list[str]):
-        # Get all word ids for this user and tags
+        # Get all words for this user and tags
         if not tags:
             # Return all words created by user
             return self.session.exec(select(SpellingWord).where(SpellingWord.created_by == user_id)).all()
@@ -54,6 +54,21 @@ class WordManager:
             word_ids.update(links)
         if not word_ids:
             return []
+        return self.session.exec(select(SpellingWord).where(SpellingWord.id.in_(word_ids))).all()
+
+    def get_all_words_for_user(self, user_id: int):
+        # Get all tag ids linked to the user
+        tag_ids = list(self.session.exec(select(UserTagsLink.tag_id).where(UserTagsLink.user_id == user_id)).all())
+        if not tag_ids:
+            return []
+        # Get all word ids linked to those tags
+        word_ids = set()
+        for tag_id in tag_ids:
+            links = self.session.exec(select(WordTagLink.word_id).where(WordTagLink.tag_id == tag_id)).all()
+            word_ids.update(links)
+        if not word_ids:
+            return []
+        # Return all words with those ids
         return self.session.exec(select(SpellingWord).where(SpellingWord.id.in_(word_ids))).all()
 
     def import_words_from_json(self, file: IO, created_by: str = "admin", language: str = "other"):
@@ -72,18 +87,25 @@ class WordManager:
                 return "english"
             else:
                 return language
-        # Ensure 'admin' user exists if created_by is 'admin'
+        # Ensure 'admin' user exists and get id if created_by is 'admin'
+        admin_user_id = None
         if created_by == "admin":
             admin_user = self.session.exec(select(User).where(User.name == "admin")).first()
             if not admin_user:
                 admin_user = User(name="admin")
                 self.session.add(admin_user)
                 self.session.commit()
+            admin_user_id = admin_user.id
         for tag, word_list in data.items():
             for word_text in word_list:
                 lang = detect_language(word_text)
-                word = SpellingWord(text=word_text, language=lang, created_by=created_by)
-                self.add_word(word, tag=tag, user_id=None if created_by == "admin" else created_by)
+                # Always use user_id (admin's id if admin, else created_by)
+                if created_by == "admin":
+                    word = SpellingWord(text=word_text, language=lang, created_by=admin_user_id)
+                    self.add_word(word, tag=tag, user_id=admin_user_id)
+                else:
+                    word = SpellingWord(text=word_text, language=lang, created_by=created_by)
+                    self.add_word(word, tag=tag, user_id=created_by)
                 count += 1
         return count
 
