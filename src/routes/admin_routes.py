@@ -16,8 +16,8 @@ templates = Jinja2Templates(directory=config.templates)
 security = HTTPBasic()
 
 # Simple hardcoded credentials
-ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "admin123"
+ADMIN_USERNAME = "816eric"
+ADMIN_PASSWORD = "Eric93287628"
 
 def authenticate(credentials: HTTPBasicCredentials = Depends(security)):
     correct_username = secrets.compare_digest(credentials.username, ADMIN_USERNAME)
