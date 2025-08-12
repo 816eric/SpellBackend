@@ -9,6 +9,7 @@ import secrets
 import config.settings as config
 from src.db_session import get_session
 from src.services.word_manager import WordManager
+from src.db_session import get_db_path
 
 router = APIRouter()
 templates = Jinja2Templates(directory=config.templates)
@@ -19,6 +20,8 @@ security = HTTPBasic()
 ADMIN_USERNAME = "816eric"
 ADMIN_PASSWORD = "Eric93287628"
 
+DB_PATH = get_db_path()
+
 def authenticate(credentials: HTTPBasicCredentials = Depends(security)):
     correct_username = secrets.compare_digest(credentials.username, ADMIN_USERNAME)
     correct_password = secrets.compare_digest(credentials.password, ADMIN_PASSWORD)
@@ -27,8 +30,8 @@ def authenticate(credentials: HTTPBasicCredentials = Depends(security)):
 
 @router.get("/admin", response_class=HTMLResponse)
 async def admin_home(request: Request, creds: HTTPBasicCredentials = Depends(authenticate)):    
-    print("database using in admin:", config.DB_PATH)
-    with sqlite3.connect(config.DB_PATH) as conn:
+    print("database using in admin:", DB_PATH)
+    with sqlite3.connect(DB_PATH) as conn:
         c = conn.cursor()
         c.execute("SELECT name FROM sqlite_master WHERE type='table'")
         tables = [row[0] for row in c.fetchall() if row[0] != "sqlite_sequence"]
@@ -46,7 +49,7 @@ async def view_table(request: Request, table_name: str, search: str = "", page: 
     limit = 200
     offset = (page - 1) * limit
 
-    with sqlite3.connect(config.DB_PATH) as conn:
+    with sqlite3.connect(DB_PATH) as conn:
         c = conn.cursor()
         c.execute(f"PRAGMA table_info({table_name})")
         columns = [col[1] for col in c.fetchall()]
@@ -80,7 +83,7 @@ async def view_table(request: Request, table_name: str, search: str = "", page: 
 @router.post("/admin/table/{table_name}/delete")
 async def delete_row(table_name: str, rowid: int = Form(...), creds: HTTPBasicCredentials = Depends(authenticate)):
     
-    with sqlite3.connect(config.DB_PATH) as conn:
+    with sqlite3.connect(DB_PATH) as conn:
         conn.execute("PRAGMA foreign_keys = ON")  # Ensure foreign key constraints are enforced
         c = conn.cursor()
         c.execute(f"DELETE FROM {table_name} WHERE rowid=?", (rowid,))
@@ -96,7 +99,7 @@ async def add_row(table_name: str, request: Request, creds: HTTPBasicCredentials
     placeholders = ", ".join("?" for _ in fields)
     columns = ", ".join(fields)
 
-    with sqlite3.connect(config.DB_PATH) as conn:
+    with sqlite3.connect(DB_PATH) as conn:
         c = conn.cursor()
         c.execute(f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})", values)
         conn.commit()
@@ -114,7 +117,7 @@ async def edit_row(table_name: str, request: Request, creds: HTTPBasicCredential
     sql = f"UPDATE {table_name} SET {', '.join(updates)} WHERE rowid = ?"
     values.append(rowid)
 
-    with sqlite3.connect(config.DB_PATH) as conn:
+    with sqlite3.connect(DB_PATH) as conn:
         c = conn.cursor()
         c.execute(sql, values)
         conn.commit()
@@ -123,7 +126,7 @@ async def edit_row(table_name: str, request: Request, creds: HTTPBasicCredential
 
 @router.get("/admin/table/{table_name}/export")
 async def export_csv(table_name: str, creds: HTTPBasicCredentials = Depends(authenticate)):
-    with sqlite3.connect(config.DB_PATH) as conn:
+    with sqlite3.connect(DB_PATH) as conn:
         c = conn.cursor()
         c.execute(f"SELECT * FROM {table_name}")
         rows = c.fetchall()
@@ -153,7 +156,7 @@ async def import_csv(table_name: str, file: UploadFile = File(...), creds: HTTPB
     placeholders = ", ".join("?" for _ in headers)
     columns = ", ".join(headers)
 
-    with sqlite3.connect(config.DB_PATH) as conn:
+    with sqlite3.connect(DB_PATH) as conn:
         c = conn.cursor()
         for row in data_rows:
             c.execute(f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})", row)
@@ -179,7 +182,7 @@ async def import_words_json(
 
 @router.post("/execute_query", response_class=HTMLResponse)
 async def execute_query(request: Request, query: str = Form(...)):
-    conn = sqlite3.connect(config.DB_PATH)
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     try:
         cursor.execute(query)

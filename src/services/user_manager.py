@@ -16,6 +16,11 @@ class UserManager:
         user_data.setdefault('school', None)
         user_data.setdefault('grade', None)
         user_data.setdefault('total_points', 0)
+        # Ensure school and grade are uppercase if present
+        if user_data['school']:
+            user_data['school'] = str(user_data['school']).upper()
+        if user_data['grade']:
+            user_data['grade'] = str(user_data['grade']).upper()
         new_user = User(**user_data)
         self.session.add(new_user)
         self.session.commit()
@@ -28,6 +33,8 @@ class UserManager:
         if not user:
             return None
         for key, value in kwargs.items():
+            if key in ("school", "grade") and value:
+                value = str(value).upper()
             if hasattr(user, key):
                 setattr(user, key, value)
         self.session.add(user)
