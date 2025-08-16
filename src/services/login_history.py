@@ -7,6 +7,9 @@ class LoginHistoryService:
         self.session = session
 
     def add_login(self, user_name: str, timestamp, tag: Optional[str] = None):
+        # Ensure timestamp is only to the second
+        if hasattr(timestamp, 'replace'):
+            timestamp = timestamp.replace(microsecond=0)
         login = LoginHistory(user_name=user_name, timestamp=timestamp, tag=tag)
         self.session.add(login)
         self.session.commit()

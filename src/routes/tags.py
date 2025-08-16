@@ -98,6 +98,8 @@ def get_all_tags():
 
 @router.post("/user/{user_name}/create", response_model=Tag)
 def create_user_tag(user_name: str, tag: Tag):
+    #convert tag to upper case
+    tag.tag = tag.tag.upper()
     with get_session() as session:
         user = session.exec(select(User).where(User.name == user_name)).first()
         if not user:

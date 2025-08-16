@@ -10,13 +10,15 @@ class UserManager:
     def create_user(self, user: User):
         # Ensure all fields have default values if not provided
         user_data = user.dict()
-        user_data.setdefault('age', None)
-        user_data.setdefault('email', None)
-        user_data.setdefault('phone', None)
-        user_data.setdefault('school', None)
-        user_data.setdefault('grade', None)
+        user_data.setdefault('age', "")
+        user_data.setdefault('email', "")
+        user_data.setdefault('phone', "")
+        user_data.setdefault('school', "")
+        user_data.setdefault('grade', "")
         user_data.setdefault('total_points', 0)
-        # Ensure school and grade are uppercase if present
+        # Ensure name, school, and grade are uppercase if present
+        if user_data['name']:
+            user_data['name'] = str(user_data['name']).upper()
         if user_data['school']:
             user_data['school'] = str(user_data['school']).upper()
         if user_data['grade']:
@@ -33,7 +35,7 @@ class UserManager:
         if not user:
             return None
         for key, value in kwargs.items():
-            if key in ("school", "grade") and value:
+            if key in ("name", "school", "grade", "email") and value:
                 value = str(value).upper()
             if hasattr(user, key):
                 setattr(user, key, value)
