@@ -13,7 +13,7 @@ class DeckBuilder:
 
 
 
-    def build_daily_deck(self, user_name: str, limit: int = 10) -> Tuple[List[Dict], str]:
+    def build_daily_deck(self, user_name: str, limit: int = 10, tag: str = None) -> Tuple[List[Dict], str]:
         """
         Returns (cards, empty_reason) where empty_reason in {'', 'no_tags', 'no_words'}
         """
@@ -24,8 +24,11 @@ class DeckBuilder:
         if not user:
             return ([], "no_tags")
         word_manager = WordManager(self.session)
-        words = word_manager.get_all_words_for_user(user.id)
-        print(f"Found {len(words)} words for user {user_name}")
+        if tag is None:
+            words = word_manager.get_all_words_for_user(user.id)
+        else:
+            words = word_manager.get_words_by_user_and_tags(user.id, [tag])
+        print(f"Found {len(words)} words for user {user_name} with tag: {tag}")
         if not words:
             return ([], "no_words")
 
