@@ -23,6 +23,7 @@ class UserManager:
             user_data['school'] = str(user_data['school']).upper()
         if user_data['grade']:
             user_data['grade'] = str(user_data['grade']).upper()
+        # password is optional, do not enforce
         new_user = User(**user_data)
         self.session.add(new_user)
         self.session.commit()
@@ -37,7 +38,10 @@ class UserManager:
         for key, value in kwargs.items():
             if key in ("name", "school", "grade", "email") and value:
                 value = str(value).upper()
-            if hasattr(user, key):
+            if key == "password":
+                # allow password update if present
+                setattr(user, key, value)
+            elif hasattr(user, key):
                 setattr(user, key, value)
         self.session.add(user)
         self.session.commit()

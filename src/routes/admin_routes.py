@@ -1,3 +1,4 @@
+from fastapi import Body
 from fastapi import APIRouter, Request, Form, UploadFile, File, Depends, HTTPException, Response
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
@@ -204,3 +205,65 @@ async def execute_query(request: Request, query: str = Form(...)):
 @router.get("/execute_query", response_class=HTMLResponse)
 async def query_executor_page(request: Request):
     return templates.TemplateResponse("query_executor.html", {"request": request})
+
+# Route to add a column to a table
+@router.post("/admin/table/{table_name}/add_column")
+async def add_column(
+    table_name: str,
+    column_name: str = Form(...),
+    column_type: str = Form(...),
+    creds: HTTPBasicCredentials = Depends(authenticate)
+):
+    # Only allow valid SQLite types for safety
+    valid_types = {"INTEGER", "TEXT", "REAL", "BLOB"}
+    if column_type.upper() not in valid_types:
+        raise HTTPException(status_code=400, detail=f"Invalid column type. Must be one of {valid_types}")
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        try:
+            c.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type.upper()}")
+            conn.commit()
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
+    return {"status": "success", "message": f"Column '{column_name}' added to '{table_name}'"}
+
+# Route to delete a column from a table (SQLite does not support DROP COLUMN directly)
+@router.post("/admin/table/{table_name}/delete_column")
+async def delete_column(
+    table_name: str,
+    column_name: str = Form(...),
+    creds: HTTPBasicCredentials = Depends(authenticate)
+):
+    # SQLite does not support DROP COLUMN directly; workaround is to recreate the table
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        # Get current columns
+        c.execute(f"PRAGMA table_info({table_name})")
+        columns_info = c.fetchall()
+        columns = [col[1] for col in columns_info if col[1] != column_name]
+        if len(columns) == len(columns_info):
+            raise HTTPException(status_code=400, detail=f"Column '{column_name}' not found in '{table_name}'")
+        columns_str = ", ".join(columns)
+        # Start transaction
+        try:
+            c.execute("BEGIN TRANSACTION;")
+            # Rename old table
+            c.execute(f"ALTER TABLE {table_name} RENAME TO {table_name}_old;")
+            # Get CREATE statement for old table
+            c.execute(f"SELECT sql FROM sqlite_master WHERE type='table' AND name='{table_name}_old';")
+            create_sql = c.fetchone()[0]
+            # Remove the column from CREATE statement
+            import re
+            pattern = re.compile(rf",?\s*{column_name} [^,)]*")
+            new_create_sql = pattern.sub("", create_sql)
+            new_create_sql = new_create_sql.replace(f"{table_name}_old", table_name)
+            c.execute(new_create_sql)
+            # Copy data
+            c.execute(f"INSERT INTO {table_name} ({columns_str}) SELECT {columns_str} FROM {table_name}_old;")
+            # Drop old table
+            c.execute(f"DROP TABLE {table_name}_old;")
+            conn.commit()
+        except Exception as e:
+            conn.rollback()
+            raise HTTPException(status_code=400, detail=str(e))
+    return {"status": "success", "message": f"Column '{column_name}' deleted from '{table_name}'"}

@@ -33,6 +33,55 @@
   </nav>
   {% endif %}
 
+
+  <h4 class="mt-4">Table Columns</h4>
+  <table class="table table-bordered table-sm mb-4">
+    <thead>
+      <tr>
+        <th>Column Name</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for col in columns if col != 'rowid' %}
+      <tr>
+        <td>{{ col }}</td>
+        <td style="white-space: nowrap">
+          <form method="post" action="/admin/table/{{ table_name }}/delete_column" style="display:inline;" onsubmit="return confirm('Delete column {{ col }}? This cannot be undone!');">
+            <input type="hidden" name="column_name" value="{{ col }}">
+            <button type="submit" class="btn btn-sm btn-danger">🗑 Delete</button>
+          </form>
+          <!-- Update column (rename) -->
+          <form method="post" action="/execute_query" style="display:inline;">
+            <input type="hidden" name="query" value="ALTER TABLE {{ table_name }} RENAME COLUMN {{ col }} TO ">
+            <input type="text" name="new_column_name" placeholder="New name" style="width: 100px;">
+            <button type="submit" class="btn btn-sm btn-secondary">✏️ Rename</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h5>Add Column</h5>
+  <form method="post" action="/admin/table/{{ table_name }}/add_column" class="row g-2 mb-4">
+    <div class="col-md-4">
+      <input type="text" name="column_name" class="form-control" placeholder="Column Name" required>
+    </div>
+    <div class="col-md-4">
+      <select name="column_type" class="form-select" required>
+        <option value="">Type</option>
+        <option value="INTEGER">INTEGER</option>
+        <option value="TEXT">TEXT</option>
+        <option value="REAL">REAL</option>
+        <option value="BLOB">BLOB</option>
+      </select>
+    </div>
+    <div class="col-md-4">
+      <button type="submit" class="btn btn-success">➕ Add Column</button>
+    </div>
+  </form>
+
   <table class="table table-bordered table-sm">
     <thead>
       <tr>

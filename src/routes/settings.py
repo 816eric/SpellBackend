@@ -19,12 +19,15 @@ def update_settings(
     user_id: int,
     study_words_source: str = None,
     num_study_words: int = None,
+    spell_repeat_count: int = None,
     session: Session = Depends(get_session)
 ):
     if num_study_words is not None and (not isinstance(num_study_words, int) or num_study_words < 1):
         raise HTTPException(status_code=400, detail="num_study_words must be a positive integer")
+    if spell_repeat_count is not None and (not isinstance(spell_repeat_count, int) or spell_repeat_count < 1):
+        raise HTTPException(status_code=400, detail="spell_repeat_count must be a positive integer")
     if study_words_source and study_words_source not in ["ALL_TAGS", "CURRENT_TAG"]:
         raise HTTPException(status_code=400, detail="study_words_source must be 'ALL_TAGS' or 'CURRENT_TAG'")
     manager = SettingManager(session)
-    setting = manager.update_user_setting(user_id, study_words_source, num_study_words)
+    setting = manager.update_user_setting(user_id, study_words_source, num_study_words, spell_repeat_count)
     return setting
