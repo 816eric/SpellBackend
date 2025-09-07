@@ -1,32 +1,32 @@
-name: Keep Render warm
+# name: Keep Render warm
 
-on:
-  schedule:
-    - cron: "*/10 * * * *"   # every 10 minutes (UTC)
-  workflow_dispatch:          # allow manual run
+# on:
+#   schedule:
+#     - cron: "*/10 * * * *"   # every 10 minutes (UTC)
+#   workflow_dispatch:          # allow manual run
 
-permissions: {}
+# permissions: {}
 
-jobs:
-  ping:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Ping health endpoint
-        env:
-          URL: https://spellbackend.onrender.com/healthz
-        run: |
-          set -e
-          echo "Pinging $URL"
-          # try up to 3 times (handles cold start)
-          for i in 1 2 3; do
-            code=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
-            echo "Attempt #$i -> HTTP $code"
-            if [ "$code" -ge 200 ] && [ "$code" -lt 500 ]; then
-              echo "OK"
-              exit 0
-            fi
-            sleep 10
-          done
-          echo "Service did not respond successfully."
-          exit 1
+# jobs:
+#   ping:
+#     runs-on: ubuntu-latest
+#     timeout-minutes: 5
+#     steps:
+#       - name: Ping health endpoint
+#         env:
+#           URL: https://spellbackend.onrender.com/healthz
+#         run: |
+#           set -e
+#           echo "Pinging $URL"
+#           # try up to 3 times (handles cold start)
+#           for i in 1 2 3; do
+#             code=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
+#             echo "Attempt #$i -> HTTP $code"
+#             if [ "$code" -ge 200 ] && [ "$code" -lt 500 ]; then
+#               echo "OK"
+#               exit 0
+#             fi
+#             sleep 10
+#           done
+#           echo "Service did not respond successfully."
+#           exit 1
