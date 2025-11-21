@@ -63,7 +63,10 @@ class DeckBuilder:
                 "word_id": w.id,
                 "text": w.text,
                 "language": w.language,
+<<<<<<< HEAD
                 "back_card": w.back_card,
+=======
+>>>>>>> b49620b11a860fca656fe2b23823573e7b23fbe1
                 "state": {
                     "repetitions": st.repetitions,
                     "interval_days": st.interval_days,
@@ -80,7 +83,10 @@ class DeckBuilder:
                     "word_id": w.id,
                     "text": w.text,
                     "language": w.language,
+<<<<<<< HEAD
                     "back_card": w.back_card,
+=======
+>>>>>>> b49620b11a860fca656fe2b23823573e7b23fbe1
                     "state": {
                         "repetitions": 0,
                         "interval_days": 0,

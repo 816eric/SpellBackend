@@ -4,7 +4,11 @@ from typing import List
 from src.services.gemini_service import GeminiService
 
 router = APIRouter(prefix="/ai", tags=["AI"])
+<<<<<<< HEAD
 gemini = GeminiService(model="gemini-2.0-flash-exp")
+=======
+gemini = GeminiService()
+>>>>>>> b49620b11a860fca656fe2b23823573e7b23fbe1
 
 class WordsRequest(BaseModel):
     words: List[str]

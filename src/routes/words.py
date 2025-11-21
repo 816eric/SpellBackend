@@ -46,6 +46,7 @@ def get_tags(name: str):
             return []
         manager = WordManager(session)
         return manager.get_tags_by_user(user.id)
+<<<<<<< HEAD
 
 @router.put("/{word_id}/back-card")
 def update_back_card(word_id: int, data: BackCardUpdate):
@@ -68,6 +69,8 @@ def get_back_card(word_id: int):
         if not word:
             return {"error": "Word not found"}
         return {"back_card": word.back_card}
+=======
+>>>>>>> b49620b11a860fca656fe2b23823573e7b23fbe1
     
 
 ## This endpoint is now redundant; use get_words with tags param instead
