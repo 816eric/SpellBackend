@@ -40,6 +40,28 @@ class RewardService:
             ],
         }
 
+    def add_points(self, user_name: str, points: int, reason: str) -> Dict[str, Any]:
+        """Add points to user account"""
+        if points <= 0:
+            raise ValueError("points must be positive")
+        manager = UserManager(self.session)
+        user = manager.get_user(user_name)
+        if not user:
+            raise ValueError("User not found")
+        # add points & create history
+        user.total_points = (user.total_points or 0) + points
+        now = datetime.now()
+        hist = RewardHistory(
+            user_name=user_name,
+            action="earn",
+            points=points,
+            reason=reason,
+            timestamp=now,
+        )
+        self.session.add(hist)
+        self.session.commit()
+        return {"ok": True, "total_points": user.total_points, "points_earned": points}
+
     def redeem(self, user_name: str, item: str, points: int) -> Dict[str, Any]:
         if points <= 0:
             raise ValueError("points must be positive")

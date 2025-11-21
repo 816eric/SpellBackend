@@ -23,6 +23,22 @@ def get_points(name: str, session: Session = Depends(get_session)):
     svc = RewardService(session)
     return svc.get_points(name)
 
+class AddPointsRequest(BaseModel):
+    points: int = Field(..., gt=0)
+    reason: str = Field(..., min_length=2, max_length=128)
+
+@router.post("/{name}/points/add")
+def add_points(name: str, body: AddPointsRequest, session: Session = Depends(get_session)):
+    manager = UserManager(session)
+    user = manager.get_user(name)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    svc = RewardService(session)
+    try:
+        return svc.add_points(name, body.points, body.reason)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @router.post("/{name}/points/redeem")
 def redeem_points(name: str, body: RedeemRequest, session: Session = Depends(get_session)):
     manager = UserManager(session)

@@ -13,3 +13,19 @@ class LoginHistory(SQLModel, table=True):
     user_name: str
     timestamp: datetime
     tag: Optional[str] = None
+
+class StudySessionHistory(SQLModel, table=True):
+    """Records detailed study session with difficulty ratings"""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_name: str = Field(foreign_key="user.name")
+    word: str
+    difficulty: int  # 0=Again, 1=Hard, 3=Good, 5=Easy
+    studied_at: datetime = Field(default_factory=datetime.utcnow)
+
+class QuizSessionHistory(SQLModel, table=True):
+    """Records detailed quiz session with answers"""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_name: str = Field(foreign_key="user.name")
+    word: str
+    is_correct: bool
+    completed_at: datetime = Field(default_factory=datetime.utcnow)
