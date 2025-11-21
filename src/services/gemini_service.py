@@ -10,24 +10,15 @@ import google.generativeai as genai
 
 
 class GeminiService:
-<<<<<<< HEAD
     def __init__(self, api_key: str = None, model: str = "gemini-2.0-flash-exp"):
-=======
-    def __init__(self, api_key: str = None):
->>>>>>> b49620b11a860fca656fe2b23823573e7b23fbe1
         self.api_key = api_key or os.getenv("Gemini_key")
         self.api_key = "AIzaSyAaXdGQdflEhPh1UcwxVGn1zc7woQtCn1Y"
         if not self.api_key:
             raise ValueError("Google Gemini API key not set.")
         genai.configure(api_key=self.api_key)
-<<<<<<< HEAD
         self.model = model
         self.client = genai.GenerativeModel(model)
         self.vision_client = genai.GenerativeModel(model)
-=======
-        self.client = genai.GenerativeModel("gemini-1.5-flash")
-        self.vision_client = genai.GenerativeModel("gemini-1.5-flash")
->>>>>>> b49620b11a860fca656fe2b23823573e7b23fbe1
 
     def extract_words_from_image(self, image_file: UploadFile) -> List[str]:
         # Read image bytes from UploadFile
