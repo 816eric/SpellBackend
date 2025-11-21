@@ -1,8 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from src.routes import users, words, study, rewards, tags
+from src.routes import users, words, study, rewards, tags, login, ai, settings
 from src.db_session import init_db
 from src.routes import admin_routes
+from src.routes import leaderboard
 
 app = FastAPI(title="Spell Practice API")
 
@@ -25,6 +26,10 @@ app.include_router(study.router)
 app.include_router(rewards.router)
 app.include_router(tags.router)
 app.include_router(admin_routes.router)
+app.include_router(login.router)
+app.include_router(ai.router)
+app.include_router(leaderboard.router)
+app.include_router(settings.router)
 
 if __name__ == "__main__":
     import uvicorn

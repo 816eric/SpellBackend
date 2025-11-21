@@ -3,3 +3,6 @@ sqlmodel
 uvicorn
 jinja2
 python-multipart
+python-dateutil
+pytz
+google.generativeai

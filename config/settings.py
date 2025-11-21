@@ -1,3 +1,3 @@
-DB_PATH = 'database/db.sqlite3'
+DB_PATH = '/database/db.sqlite3'
 
 templates = "./templates"

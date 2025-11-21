@@ -1,7 +1,17 @@
+
 from sqlmodel import create_engine, Session
+from pathlib import Path
 
-from config.settings import DB_PATH
+def get_db_path():
+    # 2) Fly.io volume mount (as set in fly.toml -> destination="/database")
+    if Path("/database").is_dir():
+        print("Using Fly.io volume mount for database")
+        return Path("/database/db.sqlite3")
+    # 1) Local development
+    print("Using local development database path")
+    return Path("database/db.sqlite3")
 
+DB_PATH = get_db_path()
 engine = create_engine(f"sqlite:///{DB_PATH}", echo=True)
 
 def get_session():
