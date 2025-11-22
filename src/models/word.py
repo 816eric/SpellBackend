@@ -7,3 +7,4 @@ class SpellingWord(SQLModel, table=True):
     language: Optional[str] = Field(default="other")
     created_by: Optional[str] = Field(default="admin")
     back_card: Optional[str] = Field(default=None)
+    quiz: Optional[str] = Field(default=None)

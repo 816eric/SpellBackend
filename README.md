@@ -5,6 +5,7 @@ Option1 (Better):
 fly.io deployment steps:
 1. install fly.io if needed: iwr https://fly.io/install.ps1 -useb | iex
 2. flyctl auth signup   # or: fly auth login if haven't login
+    #please sign in with burnlm@hotmail.com (github account)
 3. flyctl deploy --local-only #if docker is installed and running. 
 
 

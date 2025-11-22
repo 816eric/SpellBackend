@@ -12,6 +12,9 @@ router = APIRouter(prefix="/words", tags=["Words"])
 class BackCardUpdate(BaseModel):
     back_card: str
 
+class QuizUpdate(BaseModel):
+    quiz: str
+
 @router.post("/")
 def add_global_word(word: SpellingWord):
     with get_session() as session:
@@ -68,6 +71,28 @@ def get_back_card(word_id: int):
         if not word:
             return {"error": "Word not found"}
         return {"back_card": word.back_card}
+
+@router.put("/{word_id}/quiz")
+def update_quiz(word_id: int, data: QuizUpdate):
+    """Update the quiz field for a word"""
+    with get_session() as session:
+        word = session.get(SpellingWord, word_id)
+        if not word:
+            return {"error": "Word not found"}
+        word.quiz = data.quiz
+        session.add(word)
+        session.commit()
+        session.refresh(word)
+        return word
+
+@router.get("/{word_id}/quiz")
+def get_quiz(word_id: int):
+    """Get the quiz for a specific word"""
+    with get_session() as session:
+        word = session.get(SpellingWord, word_id)
+        if not word:
+            return {"error": "Word not found"}
+        return {"quiz": word.quiz}
     
 
 ## This endpoint is now redundant; use get_words with tags param instead
