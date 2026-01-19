@@ -89,10 +89,10 @@ class WordManager:
                 return language
         # Ensure 'admin' user exists and get id if created_by is 'admin'
         admin_user_id = None
-        if created_by == "admin":
-            admin_user = self.session.exec(select(User).where(User.name == "admin")).first()
+        if created_by == "admin" or created_by.upper() == "ADMIN":
+            admin_user = self.session.exec(select(User).where(User.name == "ADMIN")).first()
             if not admin_user:
-                admin_user = User(name="admin")
+                admin_user = User(name="ADMIN")
                 self.session.add(admin_user)
                 self.session.commit()
             admin_user_id = admin_user.id

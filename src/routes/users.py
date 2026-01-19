@@ -52,3 +52,9 @@ def verify_password(name: str, password: str = Form(...)):
             return {"verified": True}
         else:
             return {"verified": False}
+
+@router.delete("/{name}")
+def delete_user(name: str):
+    with get_session() as session:
+        manager = UserManager(session)
+        return manager.delete_user(name)

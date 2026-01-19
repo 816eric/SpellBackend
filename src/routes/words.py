@@ -24,7 +24,8 @@ def add_global_word(word: SpellingWord):
 @router.post("/users/{name}/words/")
 def add_user_word(name: str, word: SpellingWord, tag: str = None):
     with get_session() as session:
-        user = session.exec(select(User).where(User.name == name)).first()
+        name_upper = name.upper() if name else None
+        user = session.exec(select(User).where(User.name == name_upper)).first()
         if not user:
             return {"error": "User not found"}
         word.created_by = user.id
@@ -35,7 +36,8 @@ def add_user_word(name: str, word: SpellingWord, tag: str = None):
 def get_words(name: str, tags: str = ""):
     tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
     with get_session() as session:
-        user = session.exec(select(User).where(User.name == name)).first()
+        name_upper = name.upper() if name else None
+        user = session.exec(select(User).where(User.name == name_upper)).first()
         if not user:
             return []
         manager = WordManager(session)
@@ -44,7 +46,8 @@ def get_words(name: str, tags: str = ""):
 @router.get("/users/{name}/tags/")
 def get_tags(name: str):
     with get_session() as session:
-        user = session.exec(select(User).where(User.name == name)).first()
+        name_upper = name.upper() if name else None
+        user = session.exec(select(User).where(User.name == name_upper)).first()
         if not user:
             return []
         manager = WordManager(session)

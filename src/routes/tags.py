@@ -14,7 +14,8 @@ router = APIRouter(prefix="/tags", tags=["Tags"])
 @router.post("/user/{user_name}/unassign")
 def unassign_multiple_tags_from_user(user_name: str, tag_ids: list[int] = Body(...)):
     with get_session() as session:
-        user = session.exec(select(User).where(User.name == user_name)).first()
+        user_name_upper = user_name.upper() if user_name else None
+        user = session.exec(select(User).where(User.name == user_name_upper)).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         results = []
@@ -27,7 +28,8 @@ def unassign_multiple_tags_from_user(user_name: str, tag_ids: list[int] = Body(.
 @router.post("/user/{user_name}/assign")
 def assign_multiple_tags_to_user(user_name: str, tag_ids: list[int] = Body(...)):
     with get_session() as session:
-        user = session.exec(select(User).where(User.name == user_name)).first()
+        user_name_upper = user_name.upper() if user_name else None
+        user = session.exec(select(User).where(User.name == user_name_upper)).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         results = []
@@ -40,7 +42,8 @@ def assign_multiple_tags_to_user(user_name: str, tag_ids: list[int] = Body(...))
 @router.post("/user/{user_name}/assign/{tag_id}")
 def assign_tag_to_user(user_name: str, tag_id: int):
     with get_session() as session:
-        user = session.exec(select(User).where(User.name == user_name)).first()
+        user_name_upper = user_name.upper() if user_name else None
+        user = session.exec(select(User).where(User.name == user_name_upper)).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         link = TagManager.assign_tag_to_user(user.id, tag_id)
@@ -50,7 +53,8 @@ def assign_tag_to_user(user_name: str, tag_id: int):
 @router.post("/user/{user_name}/unassign/{tag_id}")
 def unassign_tag_from_user(user_name: str, tag_id: int):
     with get_session() as session:
-        user = session.exec(select(User).where(User.name == user_name)).first()
+        user_name_upper = user_name.upper() if user_name else None
+        user = session.exec(select(User).where(User.name == user_name_upper)).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         TagManager.unassign_tag_from_user(user.id, tag_id)
@@ -60,7 +64,8 @@ def unassign_tag_from_user(user_name: str, tag_id: int):
 @router.delete("/user/{user_name}/delete/{tag_id}")
 def delete_tag(user_name: str, tag_id: int):
     with get_session() as session:
-        user = session.exec(select(User).where(User.name == user_name)).first()
+        user_name_upper = user_name.upper() if user_name else None
+        user = session.exec(select(User).where(User.name == user_name_upper)).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         result = TagManager.delete_tag(user.id, tag_id)
@@ -72,7 +77,8 @@ def delete_tag(user_name: str, tag_id: int):
 @router.put("/user/{user_name}/edit/{tag_id}", response_model=Tag)
 def edit_tag(user_name: str, tag_id: int, new_tag: str, new_description: str = ""):
     with get_session() as session:
-        user = session.exec(select(User).where(User.name == user_name)).first()
+        user_name_upper = user_name.upper() if user_name else None
+        user = session.exec(select(User).where(User.name == user_name_upper)).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         tag = TagManager.edit_tag(user.id, tag_id, new_tag, new_description)
@@ -84,8 +90,13 @@ def edit_tag(user_name: str, tag_id: int, new_tag: str, new_description: str = "
 
 @router.get("/user/{user_name}", response_model=List[Tag])
 def get_user_tags(user_name: str):
+    # Special case: if user_name is "admin" (case-insensitive), return all tags
+    user_name_upper = user_name.upper() if user_name else None
+    if user_name_upper == "ADMIN":
+        return TagManager.get_all_tags()
+    
     with get_session() as session:
-        user = session.exec(select(User).where(User.name == user_name)).first()
+        user = session.exec(select(User).where(User.name == user_name_upper)).first()
         if not user:
             return []
         return TagManager.get_tags_by_user(user.id)
@@ -101,7 +112,8 @@ def create_user_tag(user_name: str, tag: Tag):
     #convert tag to upper case
     tag.tag = tag.tag.upper()
     with get_session() as session:
-        user = session.exec(select(User).where(User.name == user_name)).first()
+        user_name_upper = user_name.upper() if user_name else None
+        user = session.exec(select(User).where(User.name == user_name_upper)).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         return TagManager.create_tag(tag=tag.tag, created_by=str(user.id), description=tag.description or "")
