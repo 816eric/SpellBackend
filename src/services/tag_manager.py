@@ -15,6 +15,20 @@ class TagManager:
             return session.exec(select(Tag)).all()
 
     @staticmethod
+    def get_available_tags_for_user(user_id: int):
+        """Get tags available for a user: admin-created tags + user's own tags.
+        Does not include tags created by other users."""
+        with get_session() as session:
+            # Get tags created by admin or by this user
+            user_id_str = str(user_id)
+            tags = session.exec(
+                select(Tag).where(
+                    (Tag.created_by == 'admin') | (Tag.created_by == user_id_str)
+                )
+            ).all()
+            return tags
+
+    @staticmethod
     def assign_tag_to_user(user_id: int, tag_id: int):
         """Assign an existing tag to a user (create UserTagsLink if not present)."""
         with get_session() as session:

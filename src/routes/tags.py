@@ -107,6 +107,18 @@ def get_all_tags():
     return TagManager.get_all_tags()
 
 
+# Get available tags for a user (admin tags + user's own tags)
+@router.get("/available/{user_name}", response_model=List[Tag])
+def get_available_tags_for_user(user_name: str):
+    with get_session() as session:
+        user_name_upper = user_name.upper() if user_name else None
+        user = session.exec(select(User).where(User.name == user_name_upper)).first()
+        if not user:
+            # If user not found, still return admin tags (for guest users)
+            return TagManager.get_available_tags_for_user(0)
+        return TagManager.get_available_tags_for_user(user.id)
+
+
 @router.post("/user/{user_name}/create", response_model=Tag)
 def create_user_tag(user_name: str, tag: Tag):
     #convert tag to upper case
