@@ -1,6 +1,7 @@
 from sqlmodel import Session, select
 from src.models.user import User
 from src.models.history import LoginHistory
+from fastapi import HTTPException
 from datetime import datetime
 
 class UserManager:
@@ -8,6 +9,12 @@ class UserManager:
         self.session = session
 
     def create_user(self, user: User):
+        # Check if user already exists
+        statement = select(User).where(User.name == user.name.upper() if user.name else None)
+        existing_user = self.session.exec(statement).first()
+        if existing_user:
+            raise HTTPException(status_code=409, detail="User already exists")
+        
         # Ensure all fields have default values if not provided
         user_data = user.dict()
         user_data.setdefault('age', "")

@@ -7,13 +7,14 @@ from src.routes import leaderboard
 
 app = FastAPI(title="Spell Practice API")
 
-# Enable CORS for all origins, methods, and headers
+# CORS middleware MUST be added before routes
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Update with specific origins in production
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Initialize DB
