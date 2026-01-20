@@ -16,20 +16,36 @@ class TagManager:
 
     @staticmethod
     def get_available_tags_for_user(user_id: int):
-        """Get tags available for a user: admin-created tags + user's own tags.
-        Does not include tags created by other users."""
+        """Get tags available for a user:
+        1. Tags created by this user
+        2. Tags linked to ADMIN (user id 1) in UserTagsLink table
+        Does not include tags created by other users unless linked to ADMIN."""
         with get_session() as session:
-            # Get tags created by admin (user id 1 or 'admin') or by this user
             user_id_str = str(user_id)
-            # Admin user has id=1, but created_by might be stored as '1' or 'admin'
-            tags = session.exec(
-                select(Tag).where(
-                    (Tag.created_by == 'admin') | 
-                    (Tag.created_by == '1') |  # Admin user ID
-                    (Tag.created_by == user_id_str)
-                )
+            
+            # Get tags created by this user
+            user_created_tags = session.exec(
+                select(Tag).where(Tag.created_by == user_id_str)
             ).all()
-            return tags
+            
+            # Get tags linked to ADMIN (user id 1) via UserTagsLink
+            admin_linked_tag_ids = session.exec(
+                select(UserTagsLink.tag_id).where(UserTagsLink.user_id == 1)
+            ).all()
+            
+            admin_linked_tags = []
+            if admin_linked_tag_ids:
+                admin_linked_tags = session.exec(
+                    select(Tag).where(Tag.id.in_(admin_linked_tag_ids))
+                ).all()
+            
+            # Combine and deduplicate
+            all_tags = {t.id: t for t in user_created_tags}
+            for t in admin_linked_tags:
+                if t.id not in all_tags:
+                    all_tags[t.id] = t
+            
+            return list(all_tags.values())
 
     @staticmethod
     def assign_tag_to_user(user_id: int, tag_id: int):
