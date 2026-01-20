@@ -19,11 +19,14 @@ class TagManager:
         """Get tags available for a user: admin-created tags + user's own tags.
         Does not include tags created by other users."""
         with get_session() as session:
-            # Get tags created by admin or by this user
+            # Get tags created by admin (user id 1 or 'admin') or by this user
             user_id_str = str(user_id)
+            # Admin user has id=1, but created_by might be stored as '1' or 'admin'
             tags = session.exec(
                 select(Tag).where(
-                    (Tag.created_by == 'admin') | (Tag.created_by == user_id_str)
+                    (Tag.created_by == 'admin') | 
+                    (Tag.created_by == '1') |  # Admin user ID
+                    (Tag.created_by == user_id_str)
                 )
             ).all()
             return tags
