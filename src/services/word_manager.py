@@ -11,8 +11,8 @@ class WordManager:
     def __init__(self, session: Session):
         self.session = session
 
-    def add_word(self, word: SpellingWord, tag: str = None, user_id: int = None):
-        print(f"Adding word: {word.text}, tag: {tag}, user_id: {user_id}")
+    def add_word(self, word: SpellingWord, tag: str = None, user_id: int = None, is_public: bool = False):
+        print(f"Adding word: {word.text}, tag: {tag}, user_id: {user_id}, is_public: {is_public}")
         # Add word if not exist
         existing_word = self.session.exec(select(SpellingWord).where(SpellingWord.text == word.text)).first()
         if not existing_word:
@@ -35,6 +35,15 @@ class WordManager:
                 user_tag_link = self.session.exec(select(UserTagsLink).where(UserTagsLink.user_id == user_id, UserTagsLink.tag_id == tag_id)).first()
                 if not user_tag_link:
                     self.session.add(UserTagsLink(user_id=user_id, tag_id=tag_id))
+            
+            # If public tag, also link to ADMIN user (user_id = 1)
+            if is_public:
+                admin_user = self.session.exec(select(User).where(User.name == "ADMIN")).first()
+                if admin_user:
+                    admin_tag_link = self.session.exec(select(UserTagsLink).where(UserTagsLink.user_id == admin_user.id, UserTagsLink.tag_id == tag_id)).first()
+                    if not admin_tag_link:
+                        self.session.add(UserTagsLink(user_id=admin_user.id, tag_id=tag_id))
+            
             # Add WordTagLink if not exist
             word_tag_link = self.session.exec(select(WordTagLink).where(WordTagLink.word_id == word_id, WordTagLink.tag_id == tag_id)).first()
             if not word_tag_link:

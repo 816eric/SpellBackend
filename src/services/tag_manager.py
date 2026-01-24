@@ -143,9 +143,23 @@ class TagManager:
     @staticmethod
     def get_tags_by_user(user_id: int):
         with get_session() as session:
+            # Get tags via UserTagsLink
             tag_ids = list(session.exec(select(UserTagsLink.tag_id).where(UserTagsLink.user_id == user_id)).all())
-            if not tag_ids:
-                return []
-            tags = session.exec(select(Tag).where(Tag.id.in_(tag_ids))).all()
-            return tags
+            
+            # Also get tags where this user is the creator (for backward compatibility)
+            user_id_str = str(user_id)
+            created_tags = session.exec(select(Tag).where(Tag.created_by == user_id_str)).all()
+            
+            # Combine both sources
+            all_tags = {}
+            if tag_ids:
+                linked_tags = session.exec(select(Tag).where(Tag.id.in_(tag_ids))).all()
+                for t in linked_tags:
+                    all_tags[t.id] = t
+            
+            for t in created_tags:
+                if t.id not in all_tags:
+                    all_tags[t.id] = t
+            
+            return list(all_tags.values())
 

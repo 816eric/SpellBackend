@@ -90,10 +90,8 @@ def edit_tag(user_name: str, tag_id: int, new_tag: str, new_description: str = "
 
 @router.get("/user/{user_name}", response_model=List[Tag])
 def get_user_tags(user_name: str):
-    # Special case: if user_name is "admin" (case-insensitive), return all tags
+    # Get tags for the specified user (including ADMIN)
     user_name_upper = user_name.upper() if user_name else None
-    if user_name_upper == "ADMIN":
-        return TagManager.get_all_tags()
     
     with get_session() as session:
         user = session.exec(select(User).where(User.name == user_name_upper)).first()

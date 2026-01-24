@@ -22,7 +22,7 @@ def add_global_word(word: SpellingWord):
         return manager.add_word(word, user_id=None)
 
 @router.post("/users/{name}/words/")
-def add_user_word(name: str, word: SpellingWord, tag: str = None):
+def add_user_word(name: str, word: SpellingWord, tag: str = None, is_public: bool = False):
     with get_session() as session:
         name_upper = name.upper() if name else None
         user = session.exec(select(User).where(User.name == name_upper)).first()
@@ -30,7 +30,8 @@ def add_user_word(name: str, word: SpellingWord, tag: str = None):
             return {"error": "User not found"}
         word.created_by = user.id
         manager = WordManager(session)
-        return manager.add_word(word, tag=tag, user_id=user.id)
+        result = manager.add_word(word, tag=tag, user_id=user.id, is_public=is_public)
+        return result
 
 @router.get("/users/{name}/words/")
 def get_words(name: str, tags: str = ""):
