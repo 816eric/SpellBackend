@@ -8,5 +8,9 @@ COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . /app
+
+# Create cache directory for TTS audio files
+RUN mkdir -p /app/tts_cache
+
 EXPOSE 8000
 CMD ["bash","start.sh"]

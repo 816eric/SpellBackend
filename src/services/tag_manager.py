@@ -18,7 +18,8 @@ class TagManager:
     def get_available_tags_for_user(user_id: int):
         """Get tags available for a user:
         1. Tags created by this user
-        2. Tags linked to ADMIN (user id 1) in UserTagsLink table
+        2. Tags created by ADMIN (user_id=1 or created_by='1' or created_by='ADMIN')
+        3. Tags linked to ADMIN (user id 1) in UserTagsLink table
         Does not include tags created by other users unless linked to ADMIN."""
         with get_session() as session:
             user_id_str = str(user_id)
@@ -26,6 +27,11 @@ class TagManager:
             # Get tags created by this user
             user_created_tags = session.exec(
                 select(Tag).where(Tag.created_by == user_id_str)
+            ).all()
+            
+            # Get tags created by ADMIN (created_by='1' or 'ADMIN')
+            admin_created_tags = session.exec(
+                select(Tag).where((Tag.created_by == "1") | (Tag.created_by == "ADMIN"))
             ).all()
             
             # Get tags linked to ADMIN (user id 1) via UserTagsLink
@@ -41,6 +47,9 @@ class TagManager:
             
             # Combine and deduplicate
             all_tags = {t.id: t for t in user_created_tags}
+            for t in admin_created_tags:
+                if t.id not in all_tags:
+                    all_tags[t.id] = t
             for t in admin_linked_tags:
                 if t.id not in all_tags:
                     all_tags[t.id] = t

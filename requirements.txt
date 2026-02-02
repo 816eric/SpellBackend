@@ -6,3 +6,6 @@ python-multipart
 python-dateutil
 pytz
 google.generativeai
+google-api-python-client
+google-auth
+google-cloud-texttospeech
