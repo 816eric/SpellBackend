@@ -2,7 +2,7 @@ from sqlmodel import SQLModel
 from src.db_session import engine
 
 def init_db():
-    from src.models import user, word, tag, history, reward, link
+    from src.models import user, word, tag, history, reward, link, game
     SQLModel.metadata.create_all(engine)
 
     # Only drop and recreate linking tables with ON DELETE CASCADE if Tag table is empty
