@@ -47,7 +47,6 @@ def test_level_model_creation(session):
     assert level.name == "Level 1"
     assert level.description == "First level"
     assert level.difficulty == 1
-    assert level.order == 1
     assert isinstance(level.created_at, datetime)
     assert isinstance(level.updated_at, datetime)
 
@@ -76,21 +75,22 @@ def test_level_progress_model_creation(session, test_user):
     session.refresh(level)
 
     progress = LevelProgress(
-        user_name=test_user.name,
+        user_id=test_user.id,
         level_id=level.id,
         status="in_progress",
-        words_mastered=5,
-        attempts=2,
-        score=100
+        stars_earned=2,
+        points_earned=100,
+        study_count=3
     )
-    assert progress.user_name == test_user.name
+    assert progress.user_id == test_user.id
     assert progress.level_id == level.id
     assert progress.status == "in_progress"
-    assert progress.words_mastered == 5
-    assert progress.attempts == 2
-    assert progress.score == 100
-    assert isinstance(progress.started_at, datetime)
+    assert progress.stars_earned == 2
+    assert progress.points_earned == 100
+    assert progress.study_count == 3
+    assert progress.started_at is None
     assert progress.completed_at is None
+    assert isinstance(progress.updated_at, datetime)
 
 
 def test_level_progress_model_persistence(session, test_user):
@@ -101,12 +101,12 @@ def test_level_progress_model_persistence(session, test_user):
     session.refresh(level)
 
     progress = LevelProgress(
-        user_name=test_user.name,
+        user_id=test_user.id,
         level_id=level.id,
         status="in_progress",
-        words_mastered=5,
-        attempts=2,
-        score=100
+        stars_earned=2,
+        points_earned=100,
+        study_count=3
     )
     session.add(progress)
     session.commit()
@@ -116,11 +116,11 @@ def test_level_progress_model_persistence(session, test_user):
 
     # Retrieve from database
     retrieved_progress = session.query(LevelProgress).filter_by(
-        user_name=test_user.name,
+        user_id=test_user.id,
         level_id=level.id
     ).first()
     assert retrieved_progress is not None
-    assert retrieved_progress.score == 100
+    assert retrieved_progress.points_earned == 100
 
 
 def test_level_word_model_creation(session, test_word):
@@ -133,13 +133,11 @@ def test_level_word_model_creation(session, test_word):
     level_word = LevelWord(
         level_id=level.id,
         word_id=test_word.id,
-        word_order=1,
-        difficulty_modifier=1.0
+        position=1
     )
     assert level_word.level_id == level.id
     assert level_word.word_id == test_word.id
-    assert level_word.word_order == 1
-    assert level_word.difficulty_modifier == 1.0
+    assert level_word.position == 1
 
 
 def test_level_word_model_persistence(session, test_word):
@@ -152,14 +150,11 @@ def test_level_word_model_persistence(session, test_word):
     level_word = LevelWord(
         level_id=level.id,
         word_id=test_word.id,
-        word_order=1,
-        difficulty_modifier=1.0
+        position=1
     )
     session.add(level_word)
     session.commit()
     session.refresh(level_word)
-
-    assert level_word.id is not None
 
     # Retrieve from database
     retrieved_level_word = session.query(LevelWord).filter_by(
@@ -167,7 +162,7 @@ def test_level_word_model_persistence(session, test_word):
         word_id=test_word.id
     ).first()
     assert retrieved_level_word is not None
-    assert retrieved_level_word.word_order == 1
+    assert retrieved_level_word.position == 1
 
 
 def test_level_table_creation(session):
@@ -198,7 +193,7 @@ def test_level_progress_table_creation(session, test_user):
 
     # Add a progress record and verify it was inserted
     progress = LevelProgress(
-        user_name=test_user.name,
+        user_id=test_user.id,
         level_id=level.id,
         status="completed"
     )
@@ -223,7 +218,8 @@ def test_level_word_table_creation(session, test_word):
     # Add a level-word association and verify it was inserted
     level_word = LevelWord(
         level_id=level.id,
-        word_id=test_word.id
+        word_id=test_word.id,
+        position=1
     )
     session.add(level_word)
     session.commit()
@@ -240,7 +236,7 @@ def test_level_progress_foreign_key_constraint(session, test_user):
     session.refresh(level)
 
     progress = LevelProgress(
-        user_name=test_user.name,
+        user_id=test_user.id,
         level_id=level.id
     )
     session.add(progress)
@@ -249,7 +245,7 @@ def test_level_progress_foreign_key_constraint(session, test_user):
 
     # Verify foreign key references work
     retrieved_progress = session.query(LevelProgress).filter_by(id=progress.id).first()
-    assert retrieved_progress.user_name == test_user.name
+    assert retrieved_progress.user_id == test_user.id
     assert retrieved_progress.level_id == level.id
 
 
@@ -262,14 +258,15 @@ def test_level_word_foreign_key_constraint(session, test_word):
 
     level_word = LevelWord(
         level_id=level.id,
-        word_id=test_word.id
+        word_id=test_word.id,
+        position=1
     )
     session.add(level_word)
     session.commit()
     session.refresh(level_word)
 
     # Verify foreign key references work
-    retrieved_level_word = session.query(LevelWord).filter_by(id=level_word.id).first()
+    retrieved_level_word = session.query(LevelWord).filter_by(level_id=level.id, word_id=test_word.id).first()
     assert retrieved_level_word.level_id == level.id
     assert retrieved_level_word.word_id == test_word.id
 
@@ -282,10 +279,10 @@ def test_level_progress_status_field(session, test_user):
     session.refresh(level)
 
     # Test different status values
-    statuses = ["in_progress", "completed", "abandoned"]
+    statuses = ["locked", "in_progress", "completed"]
     for status in statuses:
         progress = LevelProgress(
-            user_name=test_user.name,
+            user_id=test_user.id,
             level_id=level.id,
             status=status
         )
@@ -294,18 +291,18 @@ def test_level_progress_status_field(session, test_user):
     session.commit()
 
     # Verify all statuses are stored correctly
+    locked = session.query(LevelProgress).filter_by(status="locked").count()
     in_progress = session.query(LevelProgress).filter_by(status="in_progress").count()
     completed = session.query(LevelProgress).filter_by(status="completed").count()
-    abandoned = session.query(LevelProgress).filter_by(status="abandoned").count()
 
+    assert locked == 1
     assert in_progress == 1
     assert completed == 1
-    assert abandoned == 1
 
 
 def test_level_difficulty_scale(session):
-    """Test that Level difficulty field supports the 1-10 scale"""
-    for difficulty in range(1, 11):
+    """Test that Level difficulty field supports the 1-5 scale"""
+    for difficulty in range(1, 6):
         level = Level(name=f"Level {difficulty}", difficulty=difficulty)
         session.add(level)
 
@@ -313,7 +310,7 @@ def test_level_difficulty_scale(session):
 
     # Verify all difficulty levels were stored
     result = session.query(Level).all()
-    assert len(result) == 10
+    assert len(result) == 5
 
     # Verify they're in order
     for i, level in enumerate(sorted(result, key=lambda l: l.difficulty), 1):
