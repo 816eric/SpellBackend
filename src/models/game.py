@@ -25,6 +25,7 @@ class LevelWord(SQLModel, table=True):
     position: int
 
     level: Optional[Level] = Relationship(back_populates="words")
+    word: Optional["SpellingWord"] = Relationship()
 
 
 class LevelProgress(SQLModel, table=True):
@@ -39,8 +40,10 @@ class LevelProgress(SQLModel, table=True):
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+    # Note: This is set at creation time. Application logic should manually update when record is modified.
 
     level: Optional[Level] = Relationship(back_populates="progress")
+    user: Optional["User"] = Relationship(back_populates="level_progress")
 
 
 class Challenge(SQLModel, table=True):
@@ -56,6 +59,9 @@ class Challenge(SQLModel, table=True):
     points_at_stake: int = Field(default=20)
 
     level: Optional[Level] = Relationship(back_populates="challenges")
+    challenger: Optional["User"] = Relationship(sa_relationship_kwargs={"foreign_keys": "Challenge.challenger_id"})
+    challengee: Optional["User"] = Relationship(sa_relationship_kwargs={"foreign_keys": "Challenge.challengee_id"})
+    winner: Optional["User"] = Relationship(sa_relationship_kwargs={"foreign_keys": "Challenge.winner_id"})
 
 
 class LevelStatistics(SQLModel, table=True):
@@ -69,3 +75,4 @@ class LevelStatistics(SQLModel, table=True):
     last_attempted_at: Optional[datetime] = None
 
     level: Optional[Level] = Relationship(back_populates="statistics")
+    word: Optional["SpellingWord"] = Relationship()
