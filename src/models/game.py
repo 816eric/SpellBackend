@@ -76,3 +76,29 @@ class LevelStatistics(SQLModel, table=True):
 
     level: Optional[Level] = Relationship(back_populates="statistics")
     word: Optional["SpellingWord"] = Relationship()
+
+
+class Unlockable(SQLModel, table=True):
+    """Cosmetic rewards: avatars, themes, effects."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    type: str = Field(index=True)  # "avatar_skin", "theme", "effect"
+    name: str = Field(index=True)
+    description: Optional[str] = None
+    points_cost: int = Field(ge=0)
+    unlock_method: str  # "earn_level_1", "earn_streak_10", "redeem_points"
+    rarity: str = Field(default="common")  # common, rare, epic
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    owned_by: List["UserUnlockable"] = Relationship(back_populates="unlockable")
+
+
+class UserUnlockable(SQLModel, table=True):
+    """User's cosmetic inventory."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id")
+    unlockable_id: int = Field(foreign_key="unlockable.id")
+    acquired_at: datetime = Field(default_factory=datetime.utcnow)
+    is_equipped: bool = Field(default=False)
+
+    user: Optional["User"] = Relationship(back_populates="user_unlockables")
+    unlockable: Optional[Unlockable] = Relationship(back_populates="owned_by")

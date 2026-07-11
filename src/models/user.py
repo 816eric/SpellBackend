@@ -14,3 +14,4 @@ class User(SQLModel, table=True):
     #is_admin: bool = False
 
     level_progress: List["LevelProgress"] = Relationship(back_populates="user")
+    user_unlockables: List["UserUnlockable"] = Relationship(back_populates="user")
