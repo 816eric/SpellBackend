@@ -5,6 +5,7 @@ from src.db_session import init_db
 from src.routes import admin_routes
 from src.routes import leaderboard
 import backup_to_drive
+from config.settings import SERVER_HOST, SERVER_PORT, SERVER_RELOAD
 
 app = FastAPI(title="Spell Practice API")
 
@@ -39,7 +40,8 @@ app.include_router(streaks.router)
 app.include_router(unlockables.router)
 app.include_router(challenges.router)
 
-# Backup endpoint (admin only - protect in production)
+# SECURITY WARNING: Backup endpoint must be protected in production
+# For production, implement proper authentication/authorization (e.g., API key, JWT)
 @app.post("/admin/backup")
 async def trigger_backup():
     """Manually trigger a database backup to Google Drive."""
@@ -51,4 +53,4 @@ async def trigger_backup():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host=SERVER_HOST, port=SERVER_PORT, reload=SERVER_RELOAD)
