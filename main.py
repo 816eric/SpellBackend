@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from src.routes import users, words, study, rewards, tags, login, ai, settings, history, tts
+from src.routes import users, words, study, rewards, tags, login, ai, settings, history, tts, levels, streaks, unlockables, challenges
 from src.db_session import init_db
 from src.routes import admin_routes
 from src.routes import leaderboard
@@ -34,6 +34,10 @@ app.include_router(leaderboard.router)
 app.include_router(settings.router)
 app.include_router(history.router)
 app.include_router(tts.router)
+app.include_router(levels.router)
+app.include_router(streaks.router)
+app.include_router(unlockables.router)
+app.include_router(challenges.router)
 
 # Backup endpoint (admin only - protect in production)
 @app.post("/admin/backup")
