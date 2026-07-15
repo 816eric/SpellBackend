@@ -1,11 +1,14 @@
+from datetime import timedelta
 import pytest
 from sqlmodel import Session, SQLModel, create_engine
 from sqlmodel.pool import StaticPool
 from src.services.deck_builder import DeckBuilder
+from src.services.scheduler import Scheduler
 from src.models.user import User
 from src.models.word import SpellingWord
 from src.models.tag import Tag
 from src.models.link import UserTagsLink, WordTagLink
+from src.models.review_state import ReviewState
 
 
 @pytest.fixture(name="session")
@@ -61,3 +64,52 @@ def test_build_daily_deck_quiz_field_defaults_to_none(session: Session):
     cards, _ = builder.build_daily_deck("TESTUSER", limit=10)
 
     assert cards[0]["quiz"] is None
+
+
+def test_tag_scoped_deck_includes_words_not_yet_due(session: Session):
+    """A lesson-scoped request (tag given) should return the lesson's
+    words even if SM-2 scheduled them for a future date - the user
+    explicitly picked this lesson, so it shouldn't come back empty just
+    because everything in it was reviewed correctly recently."""
+    user, word = _make_user_with_word(session, None)
+    today = Scheduler.today_sg()
+    session.add(ReviewState(
+        user_name=user.name,
+        word_id=word.id,
+        repetitions=2,
+        interval_days=6,
+        ease_factor=2.6,
+        due_date=today + timedelta(days=6),
+    ))
+    session.commit()
+
+    builder = DeckBuilder(session)
+    cards, empty_reason = builder.build_daily_deck(
+        "TESTUSER", limit=10, tag="TEST::P3::EN::Week1"
+    )
+
+    assert empty_reason == ""
+    assert len(cards) == 1
+    assert cards[0]["word_id"] == word.id
+
+
+def test_untagged_daily_deck_excludes_words_not_yet_due(session: Session):
+    """The generic no-tag daily deck (the actual 'what's due today across
+    everything' queue) should keep excluding not-yet-due words - only
+    lesson-scoped requests bypass the due-date gate."""
+    user, word = _make_user_with_word(session, None)
+    today = Scheduler.today_sg()
+    session.add(ReviewState(
+        user_name=user.name,
+        word_id=word.id,
+        repetitions=2,
+        interval_days=6,
+        ease_factor=2.6,
+        due_date=today + timedelta(days=6),
+    ))
+    session.commit()
+
+    builder = DeckBuilder(session)
+    cards, _ = builder.build_daily_deck("TESTUSER", limit=10)
+
+    assert cards == []

@@ -48,16 +48,25 @@ class DeckBuilder:
 
         overdue = []
         new_words = []
+        not_due_yet = []
         for w in words:
             st = state_by_word.get(w.id)
             if st:
                 due = st.due_date or today
                 if due <= today:
                     overdue.append((w, st))
+                elif tag is not None:
+                    # A lesson-scoped request (the user explicitly picked
+                    # this lesson) should still return its words even if
+                    # SM-2 scheduled them for a later date - the generic,
+                    # no-tag "daily deck" queue is the only place due-date
+                    # gating should actually withhold words.
+                    not_due_yet.append((w, st))
             else:
                 new_words.append((w, None))
 
         overdue.sort(key=lambda item: ((item[1].due_date or today), item[1].ease_factor, item[0].id))
+        not_due_yet.sort(key=lambda item: ((item[1].due_date or today), item[1].ease_factor, item[0].id))
 
         cards: List[Dict] = []
 
@@ -94,6 +103,24 @@ class DeckBuilder:
                         "ease_factor": 2.5,
                         "due_date": today.isoformat(),
                         "status": "new"
+                    }
+                })
+
+        if len(cards) < limit:
+            for w, st in not_due_yet:
+                if len(cards) >= limit:
+                    break
+                cards.append({
+                    "word_id": w.id,
+                    "text": w.text,
+                    "language": w.language,
+                    "back_card": w.back_card,
+                    "quiz": w.quiz,
+                    "state": {
+                        "repetitions": st.repetitions,
+                        "interval_days": st.interval_days,
+                        "ease_factor": st.ease_factor,
+                        "due_date": (st.due_date or today).isoformat(),
                     }
                 })
 
