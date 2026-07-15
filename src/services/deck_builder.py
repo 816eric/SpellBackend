@@ -16,6 +16,10 @@ class DeckBuilder:
     def build_daily_deck(self, user_name: str, limit: int = 10, tag: str = None) -> Tuple[List[Dict], str]:
         """
         Returns (cards, empty_reason) where empty_reason in {'', 'no_tags', 'no_words'}
+
+        `tag` may be a single tag or a comma-separated list of tags (used to
+        scope a deck to a lesson that spans multiple tag variants, e.g. a
+        Chinese lesson's ::read and ::write tags combined).
         """
         today = Scheduler.today_sg()
 
@@ -27,7 +31,8 @@ class DeckBuilder:
         if tag is None:
             words = word_manager.get_all_words_for_user(user.id)
         else:
-            words = word_manager.get_words_by_user_and_tags(user.id, [tag])
+            tags = [t.strip() for t in tag.split(",") if t.strip()]
+            words = word_manager.get_words_by_user_and_tags(user.id, tags)
         print(f"Found {len(words)} words for user {user_name} with tag: {tag}")
         if not words:
             return ([], "no_words")
@@ -64,6 +69,7 @@ class DeckBuilder:
                 "text": w.text,
                 "language": w.language,
                 "back_card": w.back_card,
+                "quiz": w.quiz,
                 "state": {
                     "repetitions": st.repetitions,
                     "interval_days": st.interval_days,
@@ -81,6 +87,7 @@ class DeckBuilder:
                     "text": w.text,
                     "language": w.language,
                     "back_card": w.back_card,
+                    "quiz": w.quiz,
                     "state": {
                         "repetitions": 0,
                         "interval_days": 0,
