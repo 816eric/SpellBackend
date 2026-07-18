@@ -21,6 +21,15 @@ _SKILL_KEYWORDS = {"read", "write", "listen", "speak"}
 
 _DATE_RE = re.compile(r"([0-9一二三四五六七八九十]+)月([0-9一二三四五六七八九十]+)日")
 
+# English-curriculum spell dates look like "16 JUL 2026" (day, 3-letter
+# month abbreviation, year) - a different shape from the Chinese
+# "<month>月<day>日" convention, and unlike it, they do carry a year.
+_EN_DATE_RE = re.compile(r"\b(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})\b")
+_MONTH_ABBR = {
+    "JAN": 1, "FEB": 2, "MAR": 3, "APR": 4, "MAY": 5, "JUN": 6,
+    "JUL": 7, "AUG": 8, "SEP": 9, "OCT": 10, "NOV": 11, "DEC": 12,
+}
+
 
 def _cjk_numeral_to_int(s: str) -> Optional[int]:
     """Parses a 1-99 value written as digits or Chinese numerals
@@ -44,32 +53,44 @@ def _cjk_numeral_to_int(s: str) -> Optional[int]:
     return None
 
 
-def parse_cjk_date(date_str: Optional[str]) -> Optional[Tuple[int, int]]:
-    """Parses a '<month>月<day>日' spell date (digits or Chinese numerals,
-    e.g. '七月十四日' or '7月14日') into a (month, day) tuple for sorting.
-    Returns None for missing/unparseable/out-of-range dates - callers should
-    treat those as "no date" rather than erroring."""
+def parse_spell_date(date_str: Optional[str]) -> Optional[Tuple[int, int, int]]:
+    """Parses a lesson's free-text spell date into a (year, month, day)
+    tuple for sorting. Supports two source formats:
+    - Chinese: '<month>月<day>日' in digits or Chinese numerals (e.g.
+      '七月十四日' or '7月14日') - no year, so year comes back as 0.
+    - English: 'D MON YYYY' (e.g. '16 JUL 2026').
+    A lesson's own tags never mix subjects, and list_lessons_for_user
+    always sorts one subject at a time, so a Chinese lesson's yearless
+    (0, month, day) tuples are never compared against an English lesson's
+    dated ones - only within their own subject's lesson list, where every
+    entry uses the same format consistently.
+    Returns None for missing/unparseable/out-of-range dates - callers
+    should treat those as "no date" rather than erroring."""
     if not date_str:
         return None
     m = _DATE_RE.search(date_str)
-    if not m:
-        return None
-    month = _cjk_numeral_to_int(m.group(1))
-    day = _cjk_numeral_to_int(m.group(2))
-    if month is None or day is None:
-        return None
-    if not (1 <= month <= 12 and 1 <= day <= 31):
-        return None
-    return (month, day)
+    if m:
+        month = _cjk_numeral_to_int(m.group(1))
+        day = _cjk_numeral_to_int(m.group(2))
+        if month is not None and day is not None and 1 <= month <= 12 and 1 <= day <= 31:
+            return (0, month, day)
+    m2 = _EN_DATE_RE.search(date_str)
+    if m2:
+        day = int(m2.group(1))
+        month = _MONTH_ABBR.get(m2.group(2).upper())
+        year = int(m2.group(3))
+        if month is not None and 1 <= day <= 31:
+            return (year, month, day)
+    return None
 
 
 def parse_lesson_tag(tag_str: str) -> Optional[Dict]:
-    """Parse a curriculum tag like 'SJIJ::P3::EN::Week4' or
+    """Parse a curriculum tag like 'SMSP::P3::EN::Week4' or
     'Eric::P3::CN::第一课::read' into structured fields.
 
     Expected convention: <scope>::<grade>::<subject>::<lesson...>[::<skill>],
     but the subject isn't always the 3rd segment - tags like
-    'SJIJ::P1::Term3::CN::听写(十一)' insert an extra classifier segment
+    'SMSP::P1::Term3::CN::听写(十一)' insert an extra classifier segment
     (e.g. a term marker) between grade and subject, so the subject token
     (EN/CN) is located by scanning rather than assumed to be at a fixed
     position.
@@ -182,7 +203,7 @@ class LessonManager:
         # Week#/第几课-derived order (falling back to their natural,
         # roughly-import-ordered position when neither is present).
         def _sort_key(g):
-            date_tuple = parse_cjk_date(g["spell_date"])
+            date_tuple = parse_spell_date(g["spell_date"])
             return (0, date_tuple) if date_tuple else (1, g["sort_key"])
 
         ordered = sorted(groups.values(), key=_sort_key)
