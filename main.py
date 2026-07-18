@@ -1,11 +1,22 @@
+import sys
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from src.routes import users, words, study, rewards, tags, login, ai, settings, history, tts, levels, streaks, unlockables, challenges
+from src.routes import users, words, study, rewards, tags, login, ai, settings, history, tts, levels, streaks, unlockables, challenges, lessons
 from src.db_session import init_db
 from src.routes import admin_routes
 from src.routes import leaderboard
 import backup_to_drive
 from config.settings import SERVER_HOST, SERVER_PORT, SERVER_RELOAD
+
+# On Windows, stdout/stderr default to the system codepage (e.g. cp1252)
+# whenever they aren't attached to a real console (piped to a file,
+# launched by a service manager, etc). Debug print()s of Chinese lesson
+# tags/words then raise UnicodeEncodeError and 500 the request. Force
+# UTF-8 so logging never crashes a request regardless of how the process
+# is launched.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
 
 app = FastAPI(title="Spell Practice API")
 
@@ -39,6 +50,7 @@ app.include_router(levels.router)
 app.include_router(streaks.router)
 app.include_router(unlockables.router)
 app.include_router(challenges.router)
+app.include_router(lessons.router)
 
 # SECURITY WARNING: Backup endpoint must be protected in production
 # For production, implement proper authentication/authorization (e.g., API key, JWT)
