@@ -12,13 +12,16 @@ def init_db():
     with sqlite3.connect(db_path) as conn:
         conn.execute("PRAGMA foreign_keys = ON")
 
-        # Additive migration: add label_type column to existing tag table
-        # if it predates this field (create_all only creates missing tables,
-        # it does not alter existing ones).
+        # Additive migration: add columns to the existing tag table if they
+        # predate these fields (create_all only creates missing tables, it
+        # does not alter existing ones).
         existing_columns = {row[1] for row in conn.execute("PRAGMA table_info(tag);")}
         if "label_type" not in existing_columns:
             conn.execute("ALTER TABLE tag ADD COLUMN label_type TEXT DEFAULT 'TEACHER';")
             conn.execute("UPDATE tag SET label_type = 'TEACHER' WHERE label_type IS NULL;")
+            conn.commit()
+        if "spell_date" not in existing_columns:
+            conn.execute("ALTER TABLE tag ADD COLUMN spell_date VARCHAR;")
             conn.commit()
 
         tag_count = conn.execute("SELECT COUNT(*) FROM tag;").fetchone()[0]
