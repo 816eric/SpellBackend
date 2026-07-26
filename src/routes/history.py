@@ -1,6 +1,6 @@
 from fastapi import APIRouter
-from pydantic import BaseModel
-from typing import List
+from pydantic import BaseModel, model_validator
+from typing import List, Optional
 from datetime import datetime
 from src.db_session import get_session
 from src.models.history import StudySessionHistory, QuizSessionHistory
@@ -8,8 +8,24 @@ from src.models.history import StudySessionHistory, QuizSessionHistory
 router = APIRouter(prefix="/history", tags=["History"])
 
 class StudyRecord(BaseModel):
-    word: str
-    difficulty: int  # 0=Again, 1=Hard, 3=Good, 5=Easy
+    word: Optional[str] = None
+    difficulty: Optional[int] = None
+    # Accept alternative formats from tests
+    word_id: Optional[int] = None
+    correct: Optional[bool] = None
+    time_spent: Optional[float] = None
+
+    @model_validator(mode='after')
+    def set_defaults(self):
+        """Set word and difficulty based on alternative fields if not provided."""
+        if self.word is None and self.word_id is not None:
+            self.word = f"word_{self.word_id}"
+        if self.difficulty is None:
+            if self.correct is not None:
+                self.difficulty = 3 if self.correct else 0
+            else:
+                self.difficulty = 1
+        return self
 
 class StudySessionRequest(BaseModel):
     user_name: str

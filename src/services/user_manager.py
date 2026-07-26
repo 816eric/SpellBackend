@@ -13,31 +13,31 @@ class UserManager:
 
     def create_user(self, user: User):
         # Check if user already exists (case-insensitive)
-        name_upper = user.name.upper() if user.name else None
-        statement = select(User).where(User.name == name_upper)
-        existing_user = self.session.exec(statement).first()
+        if not user.name:
+            raise HTTPException(status_code=400, detail="User name is required")
+
+        # Check for existing user with case-insensitive search
+        from sqlalchemy import func
+        existing_user = self.session.exec(
+            select(User).where(func.upper(User.name) == user.name.upper())
+        ).first()
         if existing_user:
             raise HTTPException(status_code=409, detail="User already exists")
-        
+
         # Ensure all fields have default values if not provided
-        user_data = user.dict()
+        user_data = user.model_dump(exclude_unset=True)
         user_data.setdefault('age', "")
         user_data.setdefault('email', "")
         user_data.setdefault('phone', "")
         user_data.setdefault('school', "")
         user_data.setdefault('grade', "")
         user_data.setdefault('total_points', 0)
-        # Ensure name, school, and grade are uppercase if present
-        if user_data['name']:
-            user_data['name'] = str(user_data['name']).upper()
-        if user_data['school']:
-            user_data['school'] = str(user_data['school']).upper()
-        if user_data['grade']:
-            user_data['grade'] = str(user_data['grade']).upper()
+        # Keep name as provided (lowercase or as given), don't convert to uppercase
         # password is optional, do not enforce
         new_user = User(**user_data)
         self.session.add(new_user)
         self.session.commit()
+        self.session.refresh(new_user)
         return new_user
     def update_user_profile(self, name: str, **kwargs):
         """
@@ -64,13 +64,15 @@ class UserManager:
         """
         user = self.get_user(name)
         if not user:
-            return None
-        return user.dict()
+            raise HTTPException(status_code=404, detail="User not found")
+        return user.model_dump()
 
     def get_user(self, name: str):
         # Case-insensitive search for user
-        name_upper = name.upper() if name else None
-        return self.session.exec(select(User).where(User.name == name_upper)).first()
+        if not name:
+            return None
+        from sqlalchemy import func
+        return self.session.exec(select(User).where(func.upper(User.name) == name.upper())).first()
 
     def log_login(self, name: str):
         login = LoginHistory(user_name=name, timestamp=datetime.now())

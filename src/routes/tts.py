@@ -15,6 +15,21 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/tts", tags=["tts"])
 
 
+@router.get("/health")
+async def health_check():
+    """
+    Check if Google Cloud TTS is available and configured.
+    Returns 200 if available, 503 if not.
+    """
+    if tts_service.enabled:
+        return {"status": "available", "service": "Google Cloud TTS"}
+    else:
+        raise HTTPException(
+            status_code=503,
+            detail="TTS service not available"
+        )
+
+
 class TTSRequest(BaseModel):
     text: str
     language_code: Optional[str] = None

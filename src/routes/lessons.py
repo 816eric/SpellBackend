@@ -11,7 +11,7 @@ router = APIRouter(prefix="/lessons", tags=["Lessons"])
 def get_lessons(user_name: str, subject: str):
     """List grade-filtered lessons for a user, built from the Tag system.
 
-    Groups tags like 'SJIJ::P3::EN::Week4' or 'Eric::P3::CN::第一课::read'
+    Groups tags like 'SMSP::P3::EN::Week4' or 'Eric::P3::CN::第一课::read'
     into lessons matching the user's grade and the requested subject
     (EN or CN), with per-lesson word count, mastery, and sequential
     completed/current/locked status computed from ReviewState.
