@@ -3,6 +3,7 @@ from fastapi import APIRouter, Request, Form, UploadFile, File, Depends, HTTPExc
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
+import os
 import sqlite3
 import io
 import csv
@@ -17,15 +18,17 @@ templates = Jinja2Templates(directory=config.templates)
 
 security = HTTPBasic()
 
-# Simple hardcoded credentials
-ADMIN_USERNAME = "816eric"
-ADMIN_PASSWORD = "Eric93287628"
-
 DB_PATH = get_db_path()
 
 def authenticate(credentials: HTTPBasicCredentials = Depends(security)):
-    correct_username = secrets.compare_digest(credentials.username, ADMIN_USERNAME)
-    correct_password = secrets.compare_digest(credentials.password, ADMIN_PASSWORD)
+    admin_username = os.getenv("ADMIN_USERNAME")
+    admin_password = os.getenv("ADMIN_PASSWORD")
+    if not admin_username or not admin_password:
+        # Fail closed: with no credentials configured, deny access instead
+        # of falling back to a default/blank password.
+        raise HTTPException(status_code=401, detail="Admin credentials not configured", headers={"WWW-Authenticate": "Basic"})
+    correct_username = secrets.compare_digest(credentials.username, admin_username)
+    correct_password = secrets.compare_digest(credentials.password, admin_password)
     if not (correct_username and correct_password):
         raise HTTPException(status_code=401, detail="Unauthorized", headers={"WWW-Authenticate": "Basic"})
 
