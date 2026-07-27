@@ -60,12 +60,14 @@ class UserManager:
 
     def get_user_profile(self, name: str):
         """
-        Return all profile fields for the user as a dict.
+        Return all profile fields for the user as a dict, excluding the
+        password - this is fetched on every profile-tab open in both
+        frontends and shouldn't put a plaintext password on the wire.
         """
         user = self.get_user(name)
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
-        return user.model_dump()
+        return user.model_dump(exclude={"password"})
 
     def get_user(self, name: str):
         # Case-insensitive search for user
