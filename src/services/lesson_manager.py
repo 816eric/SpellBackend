@@ -241,7 +241,7 @@ class LessonManager:
                     total += min(reps, self._MASTERY_REPS) / self._MASTERY_REPS
                 mastery_pct = total / word_count
 
-            if mastery_pct >= 0.8:
+            if mastery_pct >= 1.0:
                 status = "completed"
             elif not first_incomplete_found:
                 status = "current"
@@ -250,7 +250,7 @@ class LessonManager:
                 status = "locked"
 
             stars = (
-                3 if mastery_pct >= 0.8 else
+                3 if mastery_pct >= 1.0 else
                 2 if mastery_pct >= 0.5 else
                 1 if mastery_pct > 0 else 0
             )
