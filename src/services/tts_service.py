@@ -104,20 +104,23 @@ class TTSService:
                     language_code=language_code,
                     name=voice_name
                 )
+            elif language_code.startswith('en'):
+                # Pin an actual Neural2 voice by name - passing only ssml_gender
+                # (the old behavior) lets Google auto-pick, which isn't
+                # guaranteed to land on a Neural2/Wavenet tier voice.
+                voice = texttospeech.VoiceSelectionParams(
+                    language_code=language_code,
+                    name="en-US-Neural2-C"
+                )
             else:
-                # Use default high-quality voices
-                if language_code.startswith('zh'):
-                    # For Chinese, use Neural2 or Wavenet voices for better quality
-                    voice = texttospeech.VoiceSelectionParams(
-                        language_code=language_code,
-                        ssml_gender=texttospeech.SsmlVoiceGender.FEMALE
-                    )
-                else:
-                    # For English, use Neural2 voices
-                    voice = texttospeech.VoiceSelectionParams(
-                        language_code=language_code,
-                        ssml_gender=texttospeech.SsmlVoiceGender.FEMALE
-                    )
+                # Chinese: leave on gender-based auto-select rather than
+                # pinning an unverified voice name here - use GET
+                # /api/tts/voices?lang=zh-CN to find a real Neural2/Wavenet
+                # name before hardcoding one.
+                voice = texttospeech.VoiceSelectionParams(
+                    language_code=language_code,
+                    ssml_gender=texttospeech.SsmlVoiceGender.FEMALE
+                )
             
             # Configure audio
             audio_config = texttospeech.AudioConfig(
