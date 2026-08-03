@@ -4,6 +4,7 @@ from sqlmodel import Session, select
 from src.models.tag import Tag
 from src.models.link import WordTagLink
 from src.models.review_state import ReviewState
+from src.services.checkpoints import chunk_word_ids, current_checkpoint_index
 from src.models.user import User
 
 # Chinese numerals used in lesson tags like "第一课" (Lesson 1).
@@ -226,6 +227,7 @@ class LessonManager:
             word_count = len(word_ids)
 
             mastery_pct = 0.0
+            state_by_word = {}
             if word_ids:
                 states = self.session.exec(
                     select(ReviewState).where(
@@ -240,6 +242,10 @@ class LessonManager:
                     reps = st.repetitions if st else 0
                     total += min(reps, self._MASTERY_REPS) / self._MASTERY_REPS
                 mastery_pct = total / word_count
+
+            checkpoint_chunks = chunk_word_ids(sorted(word_ids))
+            checkpoint_count = len(checkpoint_chunks)
+            checkpoint_index = current_checkpoint_index(checkpoint_chunks, state_by_word)
 
             if mastery_pct >= 1.0:
                 status = "completed"
@@ -266,6 +272,8 @@ class LessonManager:
                 "stars": stars,
                 "status": status,
                 "spell_date": g["spell_date"],
+                "checkpoint_index": checkpoint_index,
+                "checkpoint_count": checkpoint_count,
             })
 
         return result
