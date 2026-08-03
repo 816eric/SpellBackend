@@ -21,6 +21,12 @@ class DeckBuilder:
         `tag` may be a single tag or a comma-separated list of tags (used to
         scope a deck to a lesson that spans multiple tag variants, e.g. a
         Chinese lesson's ::read and ::write tags combined).
+
+        `checkpoint` is a 0-based index that further scopes the tag's word
+        pool to a single fixed-size chunk (see checkpoints.chunk_word_ids).
+        It is a no-op if `tag` is None. An out-of-range value (negative or
+        >= the number of chunks) clamps to the nearest valid chunk rather
+        than raising or falling back to the entire unscoped pool.
         """
         today = Scheduler.today_sg()
 
@@ -38,12 +44,12 @@ class DeckBuilder:
         if not words:
             return ([], "no_words")
 
-        if checkpoint is not None and tag is not None:
+        if checkpoint is not None and tag is not None and words:
             sorted_ids = sorted(w.id for w in words)
             chunks = chunk_word_ids(sorted_ids)
-            if 0 <= checkpoint < len(chunks):
-                allowed_ids = set(chunks[checkpoint])
-                words = [w for w in words if w.id in allowed_ids]
+            clamped = max(0, min(checkpoint, len(chunks) - 1))
+            allowed_ids = set(chunks[clamped])
+            words = [w for w in words if w.id in allowed_ids]
 
         pool_word_ids = [w.id for w in words]
         states = self.session.exec(

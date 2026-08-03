@@ -176,6 +176,41 @@ def test_checkpoint_param_scopes_deck_to_that_chunk_only(session: Session):
     assert sorted(c["word_id"] for c in cards) == sorted(ids[5:7])
 
 
+def test_out_of_range_checkpoint_clamps_to_the_last_valid_chunk(session: Session):
+    """A stale/malformed checkpoint index (e.g. requesting checkpoint 5 on a
+    lesson that only has 2) should clamp to the nearest valid checkpoint,
+    not silently fall back to the entire unscoped lesson."""
+    user = User(name="TESTUSER", grade="P3")
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+
+    tag = Tag(tag="TEST::P3::EN::Week1", created_by="admin")
+    session.add(tag)
+    session.commit()
+    session.refresh(tag)
+
+    ids = []
+    for i in range(7):
+        w = SpellingWord(text=f"word{i}", language="english")
+        session.add(w)
+        session.commit()
+        session.refresh(w)
+        session.add(WordTagLink(word_id=w.id, tag_id=tag.id))
+        ids.append(w.id)
+    session.commit()
+
+    builder = DeckBuilder(session)
+    cards, _ = builder.build_daily_deck(
+        "TESTUSER", limit=10, tag="TEST::P3::EN::Week1", checkpoint=99
+    )
+
+    # 7 words -> chunks of 5,2 -> only 2 checkpoints (index 0, 1). checkpoint=99
+    # clamps to the last valid chunk (index 1: the 6th and 7th words), not the
+    # full 7-word pool.
+    assert sorted(c["word_id"] for c in cards) == sorted(ids[5:7])
+
+
 def test_deck_prioritizes_words_with_higher_fail_count(session: Session):
     """Within the same due-status tier, a word that's failed more should
     come back before one that's failed less, so it resurfaces sooner."""
