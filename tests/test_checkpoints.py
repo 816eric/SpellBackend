@@ -17,7 +17,7 @@ def test_chunk_word_ids_handles_empty_and_single_word():
 
 
 def test_chunk_word_ids_exact_multiple_of_chunk_size():
-    assert chunk_word_ids([1, 2, 3, 4, 5, 6]) == [[1, 2, 3, 4, 5], [6]]
+    assert chunk_word_ids([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) == [[1, 2, 3, 4, 5], [6, 7, 8, 9, 10]]
 
 
 def test_current_checkpoint_index_stays_on_first_incomplete_chunk():
