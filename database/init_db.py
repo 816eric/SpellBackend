@@ -24,6 +24,11 @@ def init_db():
             conn.execute("ALTER TABLE tag ADD COLUMN spell_date VARCHAR;")
             conn.commit()
 
+        existing_review_state_columns = {row[1] for row in conn.execute("PRAGMA table_info(reviewstate);")}
+        if "fail_count" not in existing_review_state_columns:
+            conn.execute("ALTER TABLE reviewstate ADD COLUMN fail_count INTEGER DEFAULT 0;")
+            conn.commit()
+
         tag_count = conn.execute("SELECT COUNT(*) FROM tag;").fetchone()[0]
         if tag_count == 0:
             # Drop and recreate UserTagsLink
