@@ -6,6 +6,7 @@ from src.services.word_manager import WordManager
 from src.services.user_manager import UserManager
 from src.models.review_state import ReviewState
 from src.services.scheduler import Scheduler
+from src.services.checkpoints import chunk_word_ids
 
 class DeckBuilder:
     def __init__(self, session: Session):
@@ -13,7 +14,7 @@ class DeckBuilder:
 
 
 
-    def build_daily_deck(self, user_name: str, limit: int = 10, tag: str = None) -> Tuple[List[Dict], str]:
+    def build_daily_deck(self, user_name: str, limit: int = 10, tag: str = None, checkpoint: int = None) -> Tuple[List[Dict], str]:
         """
         Returns (cards, empty_reason) where empty_reason in {'', 'no_tags', 'no_words'}
 
@@ -36,6 +37,13 @@ class DeckBuilder:
         print(f"Found {len(words)} words for user {user_name} with tag: {tag}")
         if not words:
             return ([], "no_words")
+
+        if checkpoint is not None and tag is not None:
+            sorted_ids = sorted(w.id for w in words)
+            chunks = chunk_word_ids(sorted_ids)
+            if 0 <= checkpoint < len(chunks):
+                allowed_ids = set(chunks[checkpoint])
+                words = [w for w in words if w.id in allowed_ids]
 
         pool_word_ids = [w.id for w in words]
         states = self.session.exec(
@@ -65,8 +73,8 @@ class DeckBuilder:
             else:
                 new_words.append((w, None))
 
-        overdue.sort(key=lambda item: ((item[1].due_date or today), item[1].ease_factor, item[0].id))
-        not_due_yet.sort(key=lambda item: ((item[1].due_date or today), item[1].ease_factor, item[0].id))
+        overdue.sort(key=lambda item: (-item[1].fail_count, (item[1].due_date or today), item[1].ease_factor, item[0].id))
+        not_due_yet.sort(key=lambda item: (-item[1].fail_count, (item[1].due_date or today), item[1].ease_factor, item[0].id))
 
         cards: List[Dict] = []
 

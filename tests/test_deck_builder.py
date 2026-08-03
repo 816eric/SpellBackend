@@ -113,3 +113,104 @@ def test_untagged_daily_deck_excludes_words_not_yet_due(session: Session):
     cards, _ = builder.build_daily_deck("TESTUSER", limit=10)
 
     assert cards == []
+
+
+def test_words_by_tag_are_returned_in_ascending_id_order(session: Session):
+    """Chunking into checkpoints depends on a stable word order; the
+    underlying query previously had no ORDER BY, so this locks down
+    ascending word_id as that stable order."""
+    user = User(name="TESTUSER", grade="P3")
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+
+    tag = Tag(tag="TEST::P3::EN::Week1", created_by="admin")
+    session.add(tag)
+    session.commit()
+    session.refresh(tag)
+
+    ids = []
+    for text in ["zebra", "apple", "mango"]:
+        w = SpellingWord(text=text, language="english")
+        session.add(w)
+        session.commit()
+        session.refresh(w)
+        session.add(WordTagLink(word_id=w.id, tag_id=tag.id))
+        ids.append(w.id)
+    session.commit()
+
+    builder = DeckBuilder(session)
+    cards, _ = builder.build_daily_deck("TESTUSER", limit=10, tag="TEST::P3::EN::Week1")
+
+    assert [c["word_id"] for c in cards] == sorted(ids)
+
+
+def test_checkpoint_param_scopes_deck_to_that_chunk_only(session: Session):
+    user = User(name="TESTUSER", grade="P3")
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+
+    tag = Tag(tag="TEST::P3::EN::Week1", created_by="admin")
+    session.add(tag)
+    session.commit()
+    session.refresh(tag)
+
+    ids = []
+    for i in range(7):
+        w = SpellingWord(text=f"word{i}", language="english")
+        session.add(w)
+        session.commit()
+        session.refresh(w)
+        session.add(WordTagLink(word_id=w.id, tag_id=tag.id))
+        ids.append(w.id)
+    session.commit()
+
+    builder = DeckBuilder(session)
+    cards, _ = builder.build_daily_deck(
+        "TESTUSER", limit=10, tag="TEST::P3::EN::Week1", checkpoint=1
+    )
+
+    # Checkpoint 1 (0-indexed) is the second chunk of 5 words -> only the
+    # 6th and 7th words (2 of them, since there are only 7 total).
+    assert sorted(c["word_id"] for c in cards) == sorted(ids[5:7])
+
+
+def test_deck_prioritizes_words_with_higher_fail_count(session: Session):
+    """Within the same due-status tier, a word that's failed more should
+    come back before one that's failed less, so it resurfaces sooner."""
+    user = User(name="TESTUSER", grade="P3")
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+
+    tag = Tag(tag="TEST::P3::EN::Week1", created_by="admin")
+    session.add(tag)
+    session.commit()
+    session.refresh(tag)
+
+    today = Scheduler.today_sg()
+    words = []
+    for text in ["low_fail", "high_fail"]:
+        w = SpellingWord(text=text, language="english")
+        session.add(w)
+        session.commit()
+        session.refresh(w)
+        session.add(WordTagLink(word_id=w.id, tag_id=tag.id))
+        words.append(w)
+    session.commit()
+
+    session.add(ReviewState(
+        user_name="TESTUSER", word_id=words[0].id, repetitions=1,
+        due_date=today, fail_count=1,
+    ))
+    session.add(ReviewState(
+        user_name="TESTUSER", word_id=words[1].id, repetitions=1,
+        due_date=today, fail_count=4,
+    ))
+    session.commit()
+
+    builder = DeckBuilder(session)
+    cards, _ = builder.build_daily_deck("TESTUSER", limit=10, tag="TEST::P3::EN::Week1")
+
+    assert [c["text"] for c in cards] == ["high_fail", "low_fail"]

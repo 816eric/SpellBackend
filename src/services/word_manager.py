@@ -71,7 +71,9 @@ class WordManager:
             word_ids.update(links)
         if not word_ids:
             return []
-        return self.session.exec(select(SpellingWord).where(SpellingWord.id.in_(word_ids))).all()
+        return self.session.exec(
+            select(SpellingWord).where(SpellingWord.id.in_(word_ids)).order_by(SpellingWord.id)
+        ).all()
 
     def get_all_words_for_user(self, user_id: int):
         # Get all tag ids linked to the user
