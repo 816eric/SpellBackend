@@ -3,6 +3,7 @@ import pytest
 from sqlmodel import Session, SQLModel, create_engine
 from sqlmodel.pool import StaticPool
 from src.services.deck_builder import DeckBuilder
+from src.services.lesson_manager import LessonManager
 from src.services.scheduler import Scheduler
 from src.models.user import User
 from src.models.word import SpellingWord
@@ -249,3 +250,49 @@ def test_deck_prioritizes_words_with_higher_fail_count(session: Session):
     cards, _ = builder.build_daily_deck("TESTUSER", limit=10, tag="TEST::P3::EN::Week1")
 
     assert [c["text"] for c in cards] == ["high_fail", "low_fail"]
+
+
+def test_lesson_manager_checkpoint_index_agrees_with_deck_builder_scoping(session: Session):
+    """The checkpoint_index /lessons reports as "current" must be a valid
+    input to /deck?checkpoint=, returning exactly that chunk's words - if
+    LessonManager's and DeckBuilder's independent word-ordering/grouping
+    queries ever drift apart, this is what would catch it."""
+    user = User(name="TESTUSER", grade="P1")
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+
+    # 18 words, first 5 (checkpoint 0) fully mastered -> checkpoint_index
+    # should be 1 (the second chunk).
+    tag = Tag(tag="T::P1::EN::Week1", created_by="admin")
+    session.add(tag)
+    session.commit()
+    session.refresh(tag)
+
+    word_ids = []
+    for i in range(18):
+        w = SpellingWord(text=f"word{i}", language="english")
+        session.add(w)
+        session.commit()
+        session.refresh(w)
+        session.add(WordTagLink(word_id=w.id, tag_id=tag.id))
+        word_ids.append(w.id)
+    session.commit()
+
+    for wid in word_ids[:5]:
+        session.add(ReviewState(user_name="TESTUSER", word_id=wid, repetitions=5))
+    session.commit()
+
+    lesson_manager = LessonManager(session)
+    lessons = lesson_manager.list_lessons_for_user(user, "EN")
+    assert lessons[0]["checkpoint_index"] == 1
+
+    deck_builder = DeckBuilder(session)
+    cards, _ = deck_builder.build_daily_deck(
+        "TESTUSER", limit=10, tag="T::P1::EN::Week1",
+        checkpoint=lessons[0]["checkpoint_index"],
+    )
+
+    # checkpoint 1 (0-indexed) is the second chunk of 5 -> words 6-10 (the
+    # 6th through 10th words created, 0-indexed word_ids[5:10]).
+    assert sorted(c["word_id"] for c in cards) == sorted(word_ids[5:10])
