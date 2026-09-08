@@ -1,0 +1,71 @@
+{
+  "date": "2026-07-15",
+  "cards": [
+    {
+      "word_id": 129,
+      "text": "科",
+      "language": "chinese",
+      "back_card": null,
+      "state": {
+        "repetitions": 0,
+        "interval_days": 0,
+        "ease_factor": 2.5,
+        "due_date": "2026-07-15",
+        "status": "new"
+      }
+    },
+    {
+      "word_id": 130,
+      "text": "将",
+      "language": "chinese",
+      "back_card": null,
+      "state": {
+        "repetitions": 0,
+        "interval_days": 0,
+        "ease_factor": 2.5,
+        "due_date": "2026-07-15",
+        "status": "new"
+      }
+    },
+    {
+      "word_id": 131,
+      "text": "军",
+      "language": "chinese",
+      "back_card": null,
+      "state": {
+        "repetitions": 0,
+        "interval_days": 0,
+        "ease_factor": 2.5,
+        "due_date": "2026-07-15",
+        "status": "new"
+      }
+    },
+    {
+      "word_id": 133,
+      "text": "当",
+      "language": "chinese",
+      "back_card": null,
+      "state": {
+        "repetitions": 0,
+        "interval_days": 0,
+        "ease_factor": 2.5,
+        "due_date": "2026-07-15",
+        "status": "new"
+      }
+    },
+    {
+      "word_id": 134,
+      "text": "练",
+      "language": "chinese",
+      "back_card": null,
+      "state": {
+        "repetitions": 0,
+        "interval_days": 0,
+        "ease_factor": 2.5,
+        "due_date": "2026-07-15",
+        "status": "new"
+      }
+    }
+  ],
+  "empty_reason": null
+}

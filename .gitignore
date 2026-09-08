@@ -172,6 +172,9 @@ logs/
 *.temp
 .cache/
 
+# Generated TTS cache
+tts_cache/
+
 # OS generated files
 Thumbs.db
 ehthumbs.db
