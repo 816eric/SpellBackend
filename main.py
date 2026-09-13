@@ -1,7 +1,7 @@
 import sys
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from src.routes import users, words, study, rewards, tags, login, ai, settings, history, tts, levels, streaks, unlockables, challenges, lessons
+from src.routes import users, words, study, rewards, tags, login, ai, settings, history, tts, levels, streaks, unlockables, challenges, lessons, minigames
 from src.db_session import init_db
 from src.routes import admin_routes
 from src.routes import leaderboard
@@ -51,6 +51,7 @@ app.include_router(streaks.router)
 app.include_router(unlockables.router)
 app.include_router(challenges.router)
 app.include_router(lessons.router)
+app.include_router(minigames.router)
 
 # SECURITY WARNING: Backup endpoint must be protected in production
 # For production, implement proper authentication/authorization (e.g., API key, JWT)
