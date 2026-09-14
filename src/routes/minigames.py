@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
-from src.db_session import get_session
+from src.db_session import get_session_dep
 from src.services.minigame_manager import MiniGameManager
 from src.models.user import User
 
@@ -15,7 +15,7 @@ def _get_user(user_name: str, session: Session) -> User:
 
 
 @router.get("/")
-def list_minigames(user_name: str, session: Session = Depends(get_session)):
+def list_minigames(user_name: str, session: Session = Depends(get_session_dep)):
     """List the game store catalog with this user's unlock status and coin balance."""
     user = _get_user(user_name, session)
     manager = MiniGameManager(session)
@@ -23,7 +23,7 @@ def list_minigames(user_name: str, session: Session = Depends(get_session)):
 
 
 @router.post("/{minigame_id}/unlock")
-def unlock_minigame(user_name: str, minigame_id: int, session: Session = Depends(get_session)):
+def unlock_minigame(user_name: str, minigame_id: int, session: Session = Depends(get_session_dep)):
     """Spend coins to permanently unlock a game."""
     user = _get_user(user_name, session)
     manager = MiniGameManager(session)
@@ -34,7 +34,7 @@ def unlock_minigame(user_name: str, minigame_id: int, session: Session = Depends
 
 
 @router.post("/{minigame_id}/play")
-def play_minigame(user_name: str, minigame_id: int, session: Session = Depends(get_session)):
+def play_minigame(user_name: str, minigame_id: int, session: Session = Depends(get_session_dep)):
     """Spend the per-play cost and get back the game's embeddable URL."""
     user = _get_user(user_name, session)
     manager = MiniGameManager(session)

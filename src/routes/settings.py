@@ -1,13 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session
-from src.db_session import get_session
+from src.db_session import get_session_dep
 from src.models.setting import UserSetting
 from src.services.setting_manager import SettingManager
 
 router = APIRouter(prefix="/settings", tags=["Settings"])
 
 @router.get("/{user_id}", response_model=UserSetting)
-def get_settings(user_id: int, session: Session = Depends(get_session)):
+def get_settings(user_id: int, session: Session = Depends(get_session_dep)):
     manager = SettingManager(session)
     setting = manager.get_user_setting(user_id)
     if not setting:
@@ -20,7 +20,7 @@ def update_settings(
     study_words_source: str = None,
     num_study_words: int = None,
     spell_repeat_count: int = None,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session_dep)
 ):
     if num_study_words is not None and (not isinstance(num_study_words, int) or num_study_words < 1):
         raise HTTPException(status_code=400, detail="num_study_words must be a positive integer")

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
-from src.db_session import get_session
+from src.db_session import get_session_dep
 from src.models.game import Challenge
 from src.models.user import User
 from datetime import datetime
@@ -12,7 +12,7 @@ def create_challenge(
     challenger_name: str,
     challengee_name: str,
     level_id: int,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session_dep)
 ):
     """Create a challenge between two users."""
     challenger = session.exec(select(User).where(User.name == challenger_name)).first()
@@ -38,7 +38,7 @@ def create_challenge(
     }
 
 @router.post("/{challenge_id}/accept")
-def accept_challenge(challenge_id: int, session: Session = Depends(get_session)):
+def accept_challenge(challenge_id: int, session: Session = Depends(get_session_dep)):
     """Accept a challenge."""
     challenge = session.get(Challenge, challenge_id)
     if not challenge:
@@ -54,7 +54,7 @@ def accept_challenge(challenge_id: int, session: Session = Depends(get_session))
 def complete_challenge(
     challenge_id: int,
     winner_name: str,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session_dep)
 ):
     """Complete a challenge, determine winner."""
     challenge = session.get(Challenge, challenge_id)
@@ -82,7 +82,7 @@ def complete_challenge(
     }
 
 @router.get("/user/{user_name}")
-def get_user_challenges(user_name: str, session: Session = Depends(get_session)):
+def get_user_challenges(user_name: str, session: Session = Depends(get_session_dep)):
     """Get user's challenges (pending and completed)."""
     user = session.exec(select(User).where(User.name == user_name)).first()
     if not user:

@@ -2,7 +2,7 @@ from typing import Optional
 from typing import Optional
 from fastapi import APIRouter, Depends, Header
 from sqlmodel import Session
-from ..db_session import get_session
+from ..db_session import get_session_dep
 from ..models.user import User
 from ..services.leaderboard_s import LeaderboardService
 
@@ -12,7 +12,7 @@ router = APIRouter(prefix="/leaderboard", tags=["Leaderboard"])
 # -------- OPTIONAL: current-user helper --------
 # Swap this for your JWT dependency once auth is in place
 def get_current_user_optional(
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session_dep),
     x_user_name: Optional[str] = Header(default=None, alias="X-User-Name"),
 ) -> Optional[User]:
     """
@@ -31,7 +31,7 @@ def leaderboard_top(
     limit: int = 20,
     school: Optional[str] = None,
     grade: Optional[str] = None,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session_dep),
     current_user: Optional[User] = Depends(get_current_user_optional),
 ):
     """
@@ -57,7 +57,7 @@ def leaderboard_me(
     limit: int = 20,
     school: Optional[str] = None,
     grade: Optional[str] = None,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session_dep),
     current_user: Optional[User] = Depends(get_current_user_optional),
 ):
     """
@@ -85,12 +85,12 @@ def leaderboard_me(
 
 # List all unique, non-empty, non-None school names
 @router.get("/schools", response_model=list[str])
-def list_schools(session: Session = Depends(get_session)):
+def list_schools(session: Session = Depends(get_session_dep)):
     svc = LeaderboardService(session)
     return svc.list_schools()
 
 # List all unique, non-empty, non-None grades, with optional school filter
 @router.get("/grades", response_model=list[str])
-def list_grades(school: Optional[str] = None, session: Session = Depends(get_session)):
+def list_grades(school: Optional[str] = None, session: Session = Depends(get_session_dep)):
     svc = LeaderboardService(session)
     return svc.list_grades(school)

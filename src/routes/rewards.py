@@ -4,7 +4,7 @@ from typing import Optional
 from sqlmodel import Session
 
 from src.services.user_manager import UserManager
-from src.db_session import get_session
+from src.db_session import get_session_dep
 from src.models.user import User
 from src.services.reward_service import RewardService, InsufficientPoints
 
@@ -15,7 +15,7 @@ class RedeemRequest(BaseModel):
     points: int = Field(..., gt=0)
 
 @router.get("/{name}/points/")
-def get_points(name: str, session: Session = Depends(get_session)):
+def get_points(name: str, session: Session = Depends(get_session_dep)):
     manager = UserManager(session)
     user = manager.get_user(name)
     if not user:
@@ -28,7 +28,7 @@ class AddPointsRequest(BaseModel):
     reason: str = Field(..., min_length=2, max_length=128)
 
 @router.post("/{name}/points/add")
-def add_points(name: str, body: AddPointsRequest, session: Session = Depends(get_session)):
+def add_points(name: str, body: AddPointsRequest, session: Session = Depends(get_session_dep)):
     manager = UserManager(session)
     user = manager.get_user(name)
     if not user:
@@ -40,7 +40,7 @@ def add_points(name: str, body: AddPointsRequest, session: Session = Depends(get
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/{name}/points/redeem")
-def redeem_points(name: str, body: RedeemRequest, session: Session = Depends(get_session)):
+def redeem_points(name: str, body: RedeemRequest, session: Session = Depends(get_session_dep)):
     manager = UserManager(session)
     user = manager.get_user(name)
     if not user:
@@ -57,7 +57,7 @@ def redeem_points(name: str, body: RedeemRequest, session: Session = Depends(get
 def points_history(
     name: str,
     page: int = Query(1, ge=1),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session_dep),
 ):
     manager = UserManager(session)
     user = manager.get_user(name)

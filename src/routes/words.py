@@ -54,6 +54,27 @@ def get_tags(name: str):
         manager = WordManager(session)
         return manager.get_tags_by_user(user.id)
 
+@router.get("/quiz-pool")
+def get_quiz_pool(limit: int = 100):
+    """All words (any user, global) that have quiz data - the Word Snake
+    game's Knowledge Stones fall back to this when a player's own deck
+    doesn't happen to include any quiz-tagged words (most words in the
+    database don't have quiz content yet, so most decks won't)."""
+    with get_session() as session:
+        words = session.exec(
+            select(SpellingWord).where(SpellingWord.quiz.is_not(None)).limit(limit)
+        ).all()
+        return [
+            {
+                "word_id": w.id,
+                "text": w.text,
+                "language": w.language,
+                "back_card": w.back_card,
+                "quiz": w.quiz,
+            }
+            for w in words
+        ]
+
 @router.put("/{word_id}/back-card")
 def update_back_card(word_id: int, data: BackCardUpdate):
     """Update the back_card field for a word"""

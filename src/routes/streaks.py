@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
-from src.db_session import get_session
+from src.db_session import get_session_dep
 from src.services.streak_manager import StreakManager
 from src.models.user import User
 from sqlalchemy import func
@@ -14,7 +14,7 @@ def get_user_by_name(user_name: str, session: Session):
     return session.exec(select(User).where(func.upper(User.name) == user_name.upper())).first()
 
 @router.get("/{user_name}")
-def get_streak(user_name: str, session: Session = Depends(get_session)):
+def get_streak(user_name: str, session: Session = Depends(get_session_dep)):
     """Get user's current streak."""
     user = get_user_by_name(user_name, session)
     if not user:
@@ -44,7 +44,7 @@ def get_streak(user_name: str, session: Session = Depends(get_session)):
     }
 
 @router.get("/users/{user_name}")
-def get_user_streaks(user_name: str, session: Session = Depends(get_session)):
+def get_user_streaks(user_name: str, session: Session = Depends(get_session_dep)):
     """Get user's streaks - alias endpoint."""
     user = get_user_by_name(user_name, session)
     if not user:
@@ -60,7 +60,7 @@ def get_user_streaks(user_name: str, session: Session = Depends(get_session)):
     }
 
 @router.post("/users/{user_name}/check-in")
-def check_in_streak(user_name: str, session: Session = Depends(get_session)):
+def check_in_streak(user_name: str, session: Session = Depends(get_session_dep)):
     """Check in to streak - increments daily streak."""
     user = get_user_by_name(user_name, session)
     if not user:
@@ -72,7 +72,7 @@ def check_in_streak(user_name: str, session: Session = Depends(get_session)):
     return result
 
 @router.post("/{user_name}/revive")
-def revive_streak(user_name: str, session: Session = Depends(get_session)):
+def revive_streak(user_name: str, session: Session = Depends(get_session_dep)):
     """Revive broken streak."""
     user = get_user_by_name(user_name, session)
     if not user:

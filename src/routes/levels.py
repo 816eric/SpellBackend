@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
-from src.db_session import get_session
+from src.db_session import get_session_dep
 from src.models.game import Level, LevelProgress
 from src.models.user import User
 from src.services.level_manager import LevelManager
@@ -9,7 +9,7 @@ router = APIRouter(prefix="/levels", tags=["Levels"])
 
 
 @router.get("/")
-def list_levels(session: Session = Depends(get_session)):
+def list_levels(session: Session = Depends(get_session_dep)):
     """List all levels."""
     try:
         levels = session.exec(select(Level).order_by(Level.id)).all()
@@ -27,7 +27,7 @@ def list_levels(session: Session = Depends(get_session)):
 
 
 @router.get("/{level_id}")
-def get_level(level_id: int, session: Session = Depends(get_session)):
+def get_level(level_id: int, session: Session = Depends(get_session_dep)):
     """Get level details including words."""
     try:
         manager = LevelManager(session)
@@ -45,7 +45,7 @@ def get_level(level_id: int, session: Session = Depends(get_session)):
 def start_level(
     user_name: str,
     level_id: int,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session_dep)
 ):
     """Mark level as started."""
     try:
@@ -93,7 +93,7 @@ def complete_level(
     user_name: str,
     level_id: int,
     accuracy: float,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session_dep)
 ):
     """Mark level complete with accuracy score."""
     try:
@@ -123,7 +123,7 @@ def complete_level(
 @router.get("/users/{user_name}")
 def get_user_levels(
     user_name: str,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session_dep)
 ):
     """Get all levels with user's progress."""
     try:
