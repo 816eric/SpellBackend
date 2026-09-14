@@ -1,0 +1,38 @@
+[
+  {
+    "id": 1,
+    "text": "photosynthesis",
+    "language": "english",
+    "back_card": "memorization tip: \"Photo\" means light, \"synthesis\" means to make. Plants \"make\" food using \"light.\"\nExplanation: The process by which green plants and some other organisms use sunlight to synthesize foods with carbon dioxide and water. It converts light energy into chemical energy.\nSimilar words: Chemosynthesis, respiration, anabolism\nExample: Photosynthesis is essential for life on Earth as it produces oxygen and the food that sustains most ecosystems."
+  },
+  {
+    "id": 2,
+    "text": "compared",
+    "language": "english",
+    "back_card": "memorization tip: Think of \"compared\" as \"com-PARED,\" like comparing two things that are paired together.\nExplanation: To compare is to examine the similarities and differences between two or more things. It helps us understand how they relate to each other.\nSimilar words: contrasted, likened, matched\nExample: The scientist compared the results of the two experiments."
+  },
+  {
+    "id": 3,
+    "text": "healthy",
+    "language": "english",
+    "back_card": "How to memorize: Break \"healthy\" into \"heal\" and \"thy\" (your body). To heal your body, you need to be healthy.\nExplanation: In good physical or mental condition; free from illness or disease. It describes something that promotes good health.\nSimilar words: Well, fit, sound\nExample: Eating a balanced diet is important for a healthy lifestyle."
+  },
+  {
+    "id": 31,
+    "text": "croaked",
+    "language": "english",
+    "quiz": "{\"question\":\"What does it mean when someone 'croaked'?\",\"options\":[\"They sang beautifully\",\"They spoke in a low, rough voice\",\"They jumped very high\",\"They ate a large meal\"],\"correct\":1}"
+  },
+  {
+    "id": 32,
+    "text": "leaned",
+    "language": "english",
+    "quiz": "{\"question\":\"Which word best describes the action of tilting or bending over to one side?\",\"options\":[\"Stood\",\"Ran\",\"Leaned\",\"Jumped\"],\"correct\":2}"
+  },
+  {
+    "id": 33,
+    "text": "shrugged",
+    "language": "english",
+    "quiz": "{\"question\":\"What does it mean to have 'shrugged'?\",\"options\":[\"To have moved your shoulders up and down to express indifference or uncertainty\",\"To have quickly moved away from something\",\"To have spoken in a very quiet voice\",\"To have nodded your head in agreement\"],\"correct\":0}"
+  }
+]

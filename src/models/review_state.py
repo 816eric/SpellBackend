@@ -11,3 +11,4 @@ class ReviewState(SQLModel, table=True):
     due_date: Optional[date] = None
     last_reviewed_at: Optional[datetime] = None
     status: Optional[str] = None  # new|learning|review
+    fail_count: int = 0  # total misses ever; never reset, drives /deck priority

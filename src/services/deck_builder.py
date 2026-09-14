@@ -6,6 +6,7 @@ from src.services.word_manager import WordManager
 from src.services.user_manager import UserManager
 from src.models.review_state import ReviewState
 from src.services.scheduler import Scheduler
+from src.services.checkpoints import chunk_word_ids
 
 class DeckBuilder:
     def __init__(self, session: Session):
@@ -13,13 +14,19 @@ class DeckBuilder:
 
 
 
-    def build_daily_deck(self, user_name: str, limit: int = 10, tag: str = None) -> Tuple[List[Dict], str]:
+    def build_daily_deck(self, user_name: str, limit: int = 10, tag: str = None, checkpoint: int = None) -> Tuple[List[Dict], str]:
         """
         Returns (cards, empty_reason) where empty_reason in {'', 'no_tags', 'no_words'}
 
         `tag` may be a single tag or a comma-separated list of tags (used to
         scope a deck to a lesson that spans multiple tag variants, e.g. a
         Chinese lesson's ::read and ::write tags combined).
+
+        `checkpoint` is a 0-based index that further scopes the tag's word
+        pool to a single fixed-size chunk (see checkpoints.chunk_word_ids).
+        It is a no-op if `tag` is None. An out-of-range value (negative or
+        >= the number of chunks) clamps to the nearest valid chunk rather
+        than raising or falling back to the entire unscoped pool.
         """
         today = Scheduler.today_sg()
 
@@ -36,6 +43,13 @@ class DeckBuilder:
         print(f"Found {len(words)} words for user {user_name} with tag: {tag}")
         if not words:
             return ([], "no_words")
+
+        if checkpoint is not None and tag is not None and words:
+            sorted_ids = sorted(w.id for w in words)
+            chunks = chunk_word_ids(sorted_ids)
+            clamped = max(0, min(checkpoint, len(chunks) - 1))
+            allowed_ids = set(chunks[clamped])
+            words = [w for w in words if w.id in allowed_ids]
 
         pool_word_ids = [w.id for w in words]
         states = self.session.exec(
@@ -65,8 +79,8 @@ class DeckBuilder:
             else:
                 new_words.append((w, None))
 
-        overdue.sort(key=lambda item: ((item[1].due_date or today), item[1].ease_factor, item[0].id))
-        not_due_yet.sort(key=lambda item: ((item[1].due_date or today), item[1].ease_factor, item[0].id))
+        overdue.sort(key=lambda item: (-item[1].fail_count, (item[1].due_date or today), item[1].ease_factor, item[0].id))
+        not_due_yet.sort(key=lambda item: (-item[1].fail_count, (item[1].due_date or today), item[1].ease_factor, item[0].id))
 
         cards: List[Dict] = []
 

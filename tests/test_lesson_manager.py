@@ -117,3 +117,38 @@ def test_second_lesson_unlocks_only_once_first_hits_100_percent(session: Session
     by_key2 = {l["lesson_key"]: l for l in lessons2}
     assert by_key2["Week1"]["status"] == "completed"
     assert by_key2["Week2"]["status"] == "current"
+
+
+def test_checkpoint_fields_for_a_partially_mastered_lesson(session: Session):
+    """18 words -> 4 checkpoints (5,5,5,3). First 5 words fully mastered,
+    the 6th (first word of checkpoint 2) is not -> checkpoint_index == 1."""
+    user = User(name="TESTUSER", grade="P1")
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+
+    word_texts = [f"word{i}" for i in range(18)]
+    reps = [5, 5, 5, 5, 5, 2] + [0] * 12
+    _make_lesson(session, user, "Week1", 1, "EN", word_texts, reps)
+
+    manager = LessonManager(session)
+    lessons = manager.list_lessons_for_user(user, "EN")
+
+    assert lessons[0]["checkpoint_count"] == 4
+    assert lessons[0]["checkpoint_index"] == 1
+
+
+def test_checkpoint_index_stays_on_last_chunk_when_lesson_fully_mastered(session: Session):
+    user = User(name="TESTUSER", grade="P1")
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+
+    _make_lesson(session, user, "Week1", 1, "EN",
+                 ["a", "b", "c", "d", "e"], [5, 5, 5, 5, 5])
+
+    manager = LessonManager(session)
+    lessons = manager.list_lessons_for_user(user, "EN")
+
+    assert lessons[0]["checkpoint_count"] == 1
+    assert lessons[0]["checkpoint_index"] == 0

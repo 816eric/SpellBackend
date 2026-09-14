@@ -22,6 +22,7 @@ class Scheduler:
         if quality < 3:
             state.repetitions = 0
             state.interval_days = 1
+            state.fail_count += 1
         else:
             if state.repetitions == 0:
                 state.interval_days = 1

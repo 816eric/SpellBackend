@@ -20,7 +20,7 @@ class ReviewRequest(BaseModel):
     quality: int  # 0,1,3,5
 
 @router.get("/{name}/deck")
-def get_daily_deck(name: str, limit: int = 10, tag: str = None):
+def get_daily_deck(name: str, limit: int = 10, tag: str = None, checkpoint: int = None):
     with get_session() as session:
         print(f"Fetching daily deck for user: {name} with limit: {limit} and tag: {tag}")
         manager = UserManager(session)
@@ -29,7 +29,7 @@ def get_daily_deck(name: str, limit: int = 10, tag: str = None):
         if not user_profile:
             raise HTTPException(status_code=404, detail="User not found")
         builder = DeckBuilder(session)
-        cards, empty_reason = builder.build_daily_deck(name, limit=limit, tag=tag)
+        cards, empty_reason = builder.build_daily_deck(name, limit=limit, tag=tag, checkpoint=checkpoint)
         return {
             "date": Scheduler.today_sg().isoformat(),
             "cards": cards,

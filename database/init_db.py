@@ -2,7 +2,7 @@ from sqlmodel import SQLModel, Session, select
 from src.db_session import engine
 
 def init_db():
-    from src.models import user, word, tag, history, reward, link, game, minigame
+    from src.models import user, word, tag, history, reward, link, game, minigame, review_state
     from src.models.game import Level
     from src.models.minigame import MiniGame
     SQLModel.metadata.create_all(engine)
@@ -33,6 +33,11 @@ def init_db():
             conn.commit()
         if minigame_columns and "native_key" not in minigame_columns:
             conn.execute("ALTER TABLE minigame ADD COLUMN native_key VARCHAR;")
+            conn.commit()
+
+        existing_review_state_columns = {row[1] for row in conn.execute("PRAGMA table_info(reviewstate);")}
+        if "fail_count" not in existing_review_state_columns:
+            conn.execute("ALTER TABLE reviewstate ADD COLUMN fail_count INTEGER DEFAULT 0;")
             conn.commit()
 
         tag_count = conn.execute("SELECT COUNT(*) FROM tag;").fetchone()[0]

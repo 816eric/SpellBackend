@@ -1,5 +1,9 @@
-# Spell Practice Backend
-Run `main.py` with uvicorn to start the API.
+# Spell Practice Backend on local PC
+$env:GOOGLE_APPLICATION_CREDENTIALS="C:\ZJB\archive\spell\gen-lang-client-0459022547-54fddcc160cd.json"
+# Verify it's set
+echo $env:GOOGLE_APPLICATION_CREDENTIALS
+# Now run your backend
+python main.py
 
 Option1 (Better):
 fly.io deployment steps:
