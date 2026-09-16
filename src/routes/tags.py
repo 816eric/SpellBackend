@@ -117,6 +117,24 @@ def get_available_tags_for_user(user_name: str):
         return TagManager.get_available_tags_for_user(user.id)
 
 
+# Set a tag's spell_date (free text - lesson/dictation scheduled date,
+# as printed on the source worksheet; may be non-ISO, e.g. Chinese
+# numerals). No HTTP route previously existed for this - it could only be
+# set via JSON import (WordManager.add_word's spell_date param) run
+# against a local DB, which production has no direct access to.
+@router.put("/{tag_id}/spell-date", response_model=Tag)
+def set_tag_spell_date(tag_id: int, spell_date: str = Body(..., embed=True)):
+    with get_session() as session:
+        tag = session.get(Tag, tag_id)
+        if not tag:
+            raise HTTPException(status_code=404, detail="Tag not found")
+        tag.spell_date = spell_date
+        session.add(tag)
+        session.commit()
+        session.refresh(tag)
+        return tag
+
+
 @router.post("/user/{user_name}/create", response_model=Tag)
 def create_user_tag(user_name: str, tag: Tag):
     #convert tag to upper case
