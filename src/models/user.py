@@ -13,5 +13,11 @@ class User(SQLModel, table=True):
     total_points: int = 0
     #is_admin: bool = False
 
+    # Daily cap on minigame play time (see MiniGameManager). playtime_date
+    # is the YYYY-MM-DD (UTC) the seconds counter is for; a mismatch means
+    # the counter is stale and should be reset before use.
+    playtime_seconds_today: int = 0
+    playtime_date: Optional[str] = None
+
     level_progress: List["LevelProgress"] = Relationship(back_populates="user")
     user_unlockables: List["UserUnlockable"] = Relationship(back_populates="user")

@@ -1,4 +1,5 @@
 import re
+from datetime import date
 from typing import Optional, List, Dict, Tuple
 from sqlmodel import Session, select
 from src.models.tag import Tag
@@ -83,6 +84,33 @@ def parse_spell_date(date_str: Optional[str]) -> Optional[Tuple[int, int, int]]:
         if month is not None and 1 <= day <= 31:
             return (year, month, day)
     return None
+
+
+def resolve_spell_date(date_tuple: Tuple[int, int, int], today: date) -> Optional[date]:
+    """Turns a `parse_spell_date()` tuple into a concrete calendar `date`
+    relative to `today`. Chinese dates carry no year (year=0 in the tuple);
+    those are assumed to fall in the current year, rolling over to next
+    year if that date has already passed - since the Chinese curriculum's
+    dates are recurring and always meant to refer to an upcoming lesson,
+    not one from a year ago. Returns None for an invalid calendar date
+    (e.g. day out of range for that month)."""
+    year, month, day = date_tuple
+    if year == 0:
+        year = today.year
+        try:
+            resolved = date(year, month, day)
+        except ValueError:
+            return None
+        if resolved < today:
+            try:
+                resolved = date(year + 1, month, day)
+            except ValueError:
+                return None
+        return resolved
+    try:
+        return date(year, month, day)
+    except ValueError:
+        return None
 
 
 def parse_lesson_tag(tag_str: str) -> Optional[Dict]:
@@ -209,6 +237,23 @@ class LessonManager:
 
         ordered = sorted(groups.values(), key=_sort_key)
 
+        # The single lesson whose spell_date is the soonest one on or after
+        # today - the "coming up next" lesson a student should prepare for.
+        # None if no lesson has a parseable, non-past date.
+        today = date.today()
+        upcoming_key = None
+        upcoming_date = None
+        for g in ordered:
+            date_tuple = parse_spell_date(g["spell_date"])
+            if not date_tuple:
+                continue
+            resolved = resolve_spell_date(date_tuple, today)
+            if resolved is None or resolved < today:
+                continue
+            if upcoming_date is None or resolved < upcoming_date:
+                upcoming_date = resolved
+                upcoming_key = g["lesson_key"]
+
         # Word ids per tag (batched once, reused per lesson group)
         all_tag_ids = {tid for g in ordered for tid in g["tag_ids"]}
         word_ids_by_tag: Dict[int, List[int]] = {}
@@ -272,6 +317,7 @@ class LessonManager:
                 "stars": stars,
                 "status": status,
                 "spell_date": g["spell_date"],
+                "is_upcoming": g["lesson_key"] == upcoming_key,
                 "checkpoint_index": checkpoint_index,
                 "checkpoint_count": checkpoint_count,
             })

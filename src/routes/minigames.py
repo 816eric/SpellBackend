@@ -42,3 +42,33 @@ def play_minigame(user_name: str, minigame_id: int, session: Session = Depends(g
     if not result["ok"]:
         raise HTTPException(status_code=400, detail=result["message"])
     return result
+
+
+@router.get("/playtime")
+def get_playtime(user_name: str, session: Session = Depends(get_session_dep)):
+    """Where this user stands against the daily combined minigame play
+    time cap: seconds used/remaining today and whether they're locked out."""
+    user = _get_user(user_name, session)
+    manager = MiniGameManager(session)
+    result = manager.get_playtime_status(user.id)
+    if not result["ok"]:
+        raise HTTPException(status_code=400, detail=result["message"])
+    return result
+
+
+@router.post("/playtime/heartbeat")
+def heartbeat_playtime(
+    user_name: str,
+    seconds: int,
+    session: Session = Depends(get_session_dep),
+):
+    """Called periodically by the client while a game is open, reporting
+    elapsed seconds of actual play since the last heartbeat. Accumulates
+    toward the daily cap and reports back whether it's now been reached, so
+    the client can lock the game out mid-session."""
+    user = _get_user(user_name, session)
+    manager = MiniGameManager(session)
+    result = manager.add_playtime(user.id, seconds)
+    if not result["ok"]:
+        raise HTTPException(status_code=400, detail=result["message"])
+    return result

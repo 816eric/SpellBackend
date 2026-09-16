@@ -175,6 +175,9 @@ logs/
 # Generated TTS cache
 tts_cache/
 
+# Downloaded production DB backups (contains real user data - never commit)
+backups/
+
 # OS generated files
 Thumbs.db
 ehthumbs.db

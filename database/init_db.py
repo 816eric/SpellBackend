@@ -40,6 +40,16 @@ def init_db():
             conn.execute("ALTER TABLE reviewstate ADD COLUMN fail_count INTEGER DEFAULT 0;")
             conn.commit()
 
+        # Additive migration: user table predates the daily minigame
+        # playtime cap columns.
+        existing_user_columns = {row[1] for row in conn.execute("PRAGMA table_info(user);")}
+        if "playtime_seconds_today" not in existing_user_columns:
+            conn.execute("ALTER TABLE user ADD COLUMN playtime_seconds_today INTEGER DEFAULT 0;")
+            conn.commit()
+        if "playtime_date" not in existing_user_columns:
+            conn.execute("ALTER TABLE user ADD COLUMN playtime_date VARCHAR;")
+            conn.commit()
+
         tag_count = conn.execute("SELECT COUNT(*) FROM tag;").fetchone()[0]
         if tag_count == 0:
             # Drop and recreate UserTagsLink

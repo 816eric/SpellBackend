@@ -4,12 +4,60 @@ from src.models.minigame import MiniGame, UserMiniGameUnlock
 from src.models.user import User
 from src.models.reward import RewardHistory
 
+# Daily cap on combined minigame play time, across all games in the store.
+DAILY_PLAYTIME_LIMIT_SECONDS = 15 * 60
+
 
 class MiniGameManager:
     """Manages the game store catalog: unlocking and playing mini-games."""
 
     def __init__(self, session: Session):
         self.session = session
+
+    def _playtime_status(self, user: User) -> dict:
+        """Reset the counter if it's carried over from a previous day, then
+        report where the user stands against the daily cap."""
+        today = datetime.utcnow().date().isoformat()
+        if user.playtime_date != today:
+            user.playtime_date = today
+            user.playtime_seconds_today = 0
+            self.session.add(user)
+            self.session.commit()
+            self.session.refresh(user)
+
+        used = user.playtime_seconds_today
+        remaining = max(0, DAILY_PLAYTIME_LIMIT_SECONDS - used)
+        return {
+            "usedSeconds": used,
+            "limitSeconds": DAILY_PLAYTIME_LIMIT_SECONDS,
+            "remainingSeconds": remaining,
+            "locked": remaining <= 0,
+        }
+
+    def get_playtime_status(self, user_id: int) -> dict:
+        user = self.session.get(User, user_id)
+        if not user:
+            return {"ok": False, "message": "User not found"}
+        status = self._playtime_status(user)
+        return {"ok": True, **status}
+
+    def add_playtime(self, user_id: int, seconds: int) -> dict:
+        """Accumulate elapsed play seconds reported by the client (a
+        heartbeat sent every few seconds while a game is open), and report
+        back whether the daily cap has now been reached."""
+        user = self.session.get(User, user_id)
+        if not user:
+            return {"ok": False, "message": "User not found"}
+
+        status = self._playtime_status(user)
+        if seconds > 0 and not status["locked"]:
+            user.playtime_seconds_today += max(0, seconds)
+            self.session.add(user)
+            self.session.commit()
+            self.session.refresh(user)
+            status = self._playtime_status(user)
+
+        return {"ok": True, **status}
 
     def get_user_minigames(self, user_id: int) -> dict:
         """List all active mini-games with this user's unlock status."""
@@ -94,6 +142,9 @@ class MiniGameManager:
             return {"ok": False, "message": "User not found"}
         if not game or not game.is_active:
             return {"ok": False, "message": "Game not found"}
+
+        if self._playtime_status(user)["locked"]:
+            return {"ok": False, "message": "Daily play time limit reached"}
 
         unlocked = game.unlock_cost == 0 or self.session.exec(
             select(UserMiniGameUnlock).where(
