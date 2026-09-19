@@ -2,7 +2,7 @@ from sqlmodel import SQLModel, Session, select
 from src.db_session import engine
 
 def init_db():
-    from src.models import user, word, tag, history, reward, link, game, minigame, review_state
+    from src.models import user, word, tag, history, reward, link, game, minigame, review_state, boss, achievement
     from src.models.game import Level
     from src.models.minigame import MiniGame
     SQLModel.metadata.create_all(engine)
@@ -48,6 +48,9 @@ def init_db():
             conn.commit()
         if "playtime_date" not in existing_user_columns:
             conn.execute("ALTER TABLE user ADD COLUMN playtime_date VARCHAR;")
+            conn.commit()
+        if "last_chest_claim_date" not in existing_user_columns:
+            conn.execute("ALTER TABLE user ADD COLUMN last_chest_claim_date VARCHAR;")
             conn.commit()
 
         tag_count = conn.execute("SELECT COUNT(*) FROM tag;").fetchone()[0]

@@ -19,5 +19,9 @@ class User(SQLModel, table=True):
     playtime_seconds_today: int = 0
     playtime_date: Optional[str] = None
 
+    # YYYY-MM-DD (UTC) the daily treasure chest was last claimed - a
+    # mismatch with today's date means it's available again.
+    last_chest_claim_date: Optional[str] = None
+
     level_progress: List["LevelProgress"] = Relationship(back_populates="user")
     user_unlockables: List["UserUnlockable"] = Relationship(back_populates="user")

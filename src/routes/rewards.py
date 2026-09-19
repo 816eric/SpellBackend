@@ -7,6 +7,7 @@ from src.services.user_manager import UserManager
 from src.db_session import get_session_dep
 from src.models.user import User
 from src.services.reward_service import RewardService, InsufficientPoints
+from src.services.chest_service import ChestService
 
 router = APIRouter(prefix="/users", tags=["Rewards"])
 
@@ -52,6 +53,28 @@ def redeem_points(name: str, body: RedeemRequest, session: Session = Depends(get
         raise HTTPException(status_code=400, detail="insufficient_points")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/{name}/chest")
+def get_chest_status(name: str, session: Session = Depends(get_session_dep)):
+    """Whether the Home screen's daily treasure chest is still claimable
+    today (UTC)."""
+    svc = ChestService(session)
+    try:
+        return svc.status(name)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@router.post("/{name}/chest/claim")
+def claim_chest(name: str, session: Session = Depends(get_session_dep)):
+    """Claim today's treasure chest: grants points and marks it claimed
+    until the next UTC day."""
+    svc = ChestService(session)
+    try:
+        return svc.claim(name)
+    except ValueError as e:
+        detail = str(e)
+        status_code = 400 if detail == "already_claimed" else 404
+        raise HTTPException(status_code=status_code, detail=detail)
 
 @router.get("/{name}/points/history")
 def points_history(
