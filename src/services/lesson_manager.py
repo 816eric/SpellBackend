@@ -5,7 +5,15 @@ from sqlmodel import Session, select
 from src.models.tag import Tag
 from src.models.link import WordTagLink
 from src.models.review_state import ReviewState
-from src.services.checkpoints import chunk_word_ids, current_checkpoint_index
+from src.models.checkpoint_progress import CheckpointProgress
+from src.services.checkpoints import (
+    MASTERY_REPS,
+    REVIEW_CHECKPOINT_INDEX,
+    chunk_word_ids,
+    current_checkpoint_index,
+    is_word_mastered,
+    passed_checkpoint_indices,
+)
 from src.models.user import User
 
 # Chinese numerals used in lesson tags like "第一课" (Lesson 1).
@@ -191,15 +199,40 @@ class LessonManager:
     Tag system, for the Duolingo-style journey path UI."""
 
     # Words with this many spaced-repetition reps count as "fully learned"
-    # for mastery-percentage purposes.
-    _MASTERY_REPS = 5
+    # for mastery-percentage (stars) purposes.
+    _MASTERY_REPS = MASTERY_REPS
 
     def __init__(self, session: Session):
         self.session = session
 
-    def list_lessons_for_user(self, user: User, subject: str) -> List[Dict]:
+    # GUEST is a shared, unauthenticated identity (see FlutterSpell_Game's
+    # GameProvider.loginAsGuest) - unlike a real student it has no teacher
+    # assigning it a specific curriculum, so it's hard-pinned to one curated
+    # lesson set per subject rather than seeing every scope/grade's content.
+    # Chosen to match what's actually tagged: SGP only has Chinese content
+    # at P4 (no P1 Chinese tag parses cleanly), while P1 English lives
+    # untagged-by-scope-restriction (e.g. SMSP) since SGP has none.
+    _GUEST_OVERRIDES = {
+        "CN": {"grade": "P4", "scope": "SGP"},
+        "EN": {"grade": "P1", "scope": None},
+    }
+
+    def list_lessons_for_user(
+        self, user: User, subject: str, label_type: Optional[str] = None
+    ) -> List[Dict]:
+        """`label_type` (e.g. 'TEACHER', 'MOE') restricts the list to
+        lessons of that type, and the completed/current/locked sequence is
+        then computed within just those lessons - each type is its own
+        track. None means every type in one combined sequence."""
         subject = subject.upper()
+        label_type = label_type.upper() if label_type else None
         grade = (user.grade or "").upper()
+        scope_filter = None
+        if (user.name or "").upper() == "GUEST":
+            override = self._GUEST_OVERRIDES.get(subject)
+            if override:
+                grade = override["grade"]
+                scope_filter = override["scope"]
 
         all_tags = self.session.exec(select(Tag)).all()
         groups: Dict[str, Dict] = {}
@@ -208,6 +241,10 @@ class LessonManager:
             if not parsed:
                 continue
             if parsed["grade"] != grade or parsed["subject"] != subject:
+                continue
+            if scope_filter and parsed["scope"].upper() != scope_filter:
+                continue
+            if label_type and (tag.label_type or "TEACHER").upper() != label_type:
                 continue
             key = parsed["lesson_key"]
             group = groups.setdefault(key, {
@@ -263,6 +300,15 @@ class LessonManager:
             ).all()
             word_ids_by_tag[tag_id] = list(links)
 
+        recorded_by_lesson: Dict[str, set] = {}
+        for row in self.session.exec(
+            select(CheckpointProgress).where(
+                (CheckpointProgress.user_name == user.name)
+                & (CheckpointProgress.subject == subject)
+            )
+        ).all():
+            recorded_by_lesson.setdefault(row.lesson_key, set()).add(row.checkpoint_index)
+
         result = []
         first_incomplete_found = False
         for g in ordered:
@@ -290,9 +336,24 @@ class LessonManager:
 
             checkpoint_chunks = chunk_word_ids(sorted(word_ids))
             checkpoint_count = len(checkpoint_chunks)
-            checkpoint_index = current_checkpoint_index(checkpoint_chunks, state_by_word)
+            recorded = recorded_by_lesson.get(g["lesson_key"], set())
+            passed = passed_checkpoint_indices(checkpoint_chunks, state_by_word, recorded)
+            checkpoint_index = current_checkpoint_index(checkpoint_count, passed)
+            all_points_passed = checkpoint_count > 0 and len(passed) == checkpoint_count
+            # The review node counts as passed once a review session was
+            # completed, or for a lesson whose words are all already
+            # mastered (progress made before review nodes existed).
+            review_passed = all_points_passed and (
+                REVIEW_CHECKPOINT_INDEX in recorded
+                or all(is_word_mastered(state_by_word.get(wid)) for wid in word_ids)
+            )
+            review_due_count = sum(
+                1 for wid in word_ids
+                if wid in state_by_word
+                and (state_by_word[wid].due_date or today) <= today
+            )
 
-            if mastery_pct >= 1.0:
+            if review_passed:
                 status = "completed"
             elif not first_incomplete_found:
                 status = "current"
@@ -320,6 +381,12 @@ class LessonManager:
                 "is_upcoming": g["lesson_key"] == upcoming_key,
                 "checkpoint_index": checkpoint_index,
                 "checkpoint_count": checkpoint_count,
+                "checkpoints": [
+                    {"index": i, "word_ids": chunk, "passed": i in passed}
+                    for i, chunk in enumerate(checkpoint_chunks)
+                ],
+                "review_passed": review_passed,
+                "review_due_count": review_due_count,
             })
 
         return result

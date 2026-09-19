@@ -158,7 +158,7 @@ def test_checkpoint_param_scopes_deck_to_that_chunk_only(session: Session):
     session.refresh(tag)
 
     ids = []
-    for i in range(7):
+    for i in range(12):
         w = SpellingWord(text=f"word{i}", language="english")
         session.add(w)
         session.commit()
@@ -172,9 +172,8 @@ def test_checkpoint_param_scopes_deck_to_that_chunk_only(session: Session):
         "TESTUSER", limit=10, tag="TEST::P3::EN::Week1", checkpoint=1
     )
 
-    # Checkpoint 1 (0-indexed) is the second chunk of 5 words -> only the
-    # 6th and 7th words (2 of them, since there are only 7 total).
-    assert sorted(c["word_id"] for c in cards) == sorted(ids[5:7])
+    # 12 words -> two balanced checkpoints of 6; checkpoint 1 is the second.
+    assert sorted(c["word_id"] for c in cards) == sorted(ids[6:12])
 
 
 def test_out_of_range_checkpoint_clamps_to_the_last_valid_chunk(session: Session):
@@ -192,7 +191,7 @@ def test_out_of_range_checkpoint_clamps_to_the_last_valid_chunk(session: Session
     session.refresh(tag)
 
     ids = []
-    for i in range(7):
+    for i in range(12):
         w = SpellingWord(text=f"word{i}", language="english")
         session.add(w)
         session.commit()
@@ -206,10 +205,9 @@ def test_out_of_range_checkpoint_clamps_to_the_last_valid_chunk(session: Session
         "TESTUSER", limit=10, tag="TEST::P3::EN::Week1", checkpoint=99
     )
 
-    # 7 words -> chunks of 5,2 -> only 2 checkpoints (index 0, 1). checkpoint=99
-    # clamps to the last valid chunk (index 1: the 6th and 7th words), not the
-    # full 7-word pool.
-    assert sorted(c["word_id"] for c in cards) == sorted(ids[5:7])
+    # 12 words -> two checkpoints of 6 (index 0, 1). checkpoint=99 clamps to
+    # the last valid chunk (index 1), not the full 12-word pool.
+    assert sorted(c["word_id"] for c in cards) == sorted(ids[6:12])
 
 
 def test_deck_prioritizes_words_with_higher_fail_count(session: Session):
@@ -262,8 +260,8 @@ def test_lesson_manager_checkpoint_index_agrees_with_deck_builder_scoping(sessio
     session.commit()
     session.refresh(user)
 
-    # 18 words, first 5 (checkpoint 0) fully mastered -> checkpoint_index
-    # should be 1 (the second chunk).
+    # 18 words -> checkpoints of 5,5,4,4. First 5 (checkpoint 0) fully
+    # mastered -> checkpoint_index should be 1 (the second chunk).
     tag = Tag(tag="T::P1::EN::Week1", created_by="admin")
     session.add(tag)
     session.commit()
@@ -294,5 +292,122 @@ def test_lesson_manager_checkpoint_index_agrees_with_deck_builder_scoping(sessio
     )
 
     # checkpoint 1 (0-indexed) is the second chunk of 5 -> words 6-10 (the
-    # 6th through 10th words created, 0-indexed word_ids[5:10]).
-    assert sorted(c["word_id"] for c in cards) == sorted(word_ids[5:10])
+    # 6th through 10th words created, 0-indexed word_ids[5:10]). The mastered
+    # words from checkpoint 0 may ride along as flagged spaced-review extras.
+    own = [c["word_id"] for c in cards if not c["state"].get("review")]
+    assert sorted(own) == sorted(word_ids[5:10])
+
+
+def _make_words(session, tag_str, n, prefix="w"):
+    tag = Tag(tag=tag_str, created_by="admin")
+    session.add(tag)
+    session.commit()
+    session.refresh(tag)
+    ids = []
+    for i in range(n):
+        w = SpellingWord(text=f"{prefix}{i}", language="english")
+        session.add(w)
+        session.commit()
+        session.refresh(w)
+        session.add(WordTagLink(word_id=w.id, tag_id=tag.id))
+        ids.append(w.id)
+    session.commit()
+    return ids
+
+
+def test_checkpoint_deck_mixes_in_due_words_from_the_lessons_other_checkpoints(session: Session):
+    session.add(User(name="TESTUSER", grade="P3"))
+    session.commit()
+    ids = _make_words(session, "TEST::P3::EN::Week1", 10)
+    today = Scheduler.today_sg()
+    # Checkpoint 0 words were studied and are due again; one is not due yet.
+    for wid in ids[:4]:
+        session.add(ReviewState(user_name="TESTUSER", word_id=wid, repetitions=1, due_date=today))
+    session.add(ReviewState(
+        user_name="TESTUSER", word_id=ids[4], repetitions=1,
+        due_date=today + timedelta(days=3),
+    ))
+    session.commit()
+
+    cards, _ = DeckBuilder(session).build_daily_deck(
+        "TESTUSER", limit=10, tag="TEST::P3::EN::Week1", checkpoint=1
+    )
+
+    own = [c["word_id"] for c in cards if not c["state"].get("review")]
+    extra = [c["word_id"] for c in cards if c["state"].get("review")]
+    assert sorted(own) == sorted(ids[5:10])
+    assert len(extra) == 3  # ceil(5 / 2)
+    assert set(extra) <= set(ids[:4])  # due ones only, never the not-yet-due word
+
+
+def test_checkpoint_deck_adds_one_due_word_from_an_earlier_lesson(session: Session):
+    session.add(User(name="TESTUSER", grade="P3"))
+    session.commit()
+    old_ids = _make_words(session, "TEST::P3::EN::Week1", 5, prefix="old")
+    new_ids = _make_words(session, "TEST::P3::EN::Week2", 5, prefix="new")
+    today = Scheduler.today_sg()
+    session.add(ReviewState(user_name="TESTUSER", word_id=old_ids[0], repetitions=2, due_date=today))
+    session.commit()
+
+    cards, _ = DeckBuilder(session).build_daily_deck(
+        "TESTUSER", limit=10, tag="TEST::P3::EN::Week2", checkpoint=0
+    )
+
+    assert [c["word_id"] for c in cards if c["state"].get("review")] == [old_ids[0]]
+    assert sorted(c["word_id"] for c in cards if not c["state"].get("review")) == sorted(new_ids)
+
+
+def test_review_extras_never_cross_languages(session: Session):
+    """A due English word from an earlier lesson must not turn up in a
+    Chinese lesson's session (or the reverse)."""
+    session.add(User(name="TESTUSER", grade="P3"))
+    session.commit()
+    en_ids = _make_words(session, "TEST::P3::EN::Week1", 3, prefix="eng")
+
+    cn_tag = Tag(tag="TEST::P3::CN::第一课", created_by="admin")
+    session.add(cn_tag)
+    session.commit()
+    session.refresh(cn_tag)
+    cn_ids = []
+    for ch in "你好我他她":
+        w = SpellingWord(text=ch, language="chinese")
+        session.add(w)
+        session.commit()
+        session.refresh(w)
+        session.add(WordTagLink(word_id=w.id, tag_id=cn_tag.id))
+        cn_ids.append(w.id)
+    session.commit()
+
+    today = Scheduler.today_sg()
+    for wid in en_ids:
+        session.add(ReviewState(user_name="TESTUSER", word_id=wid, repetitions=2, due_date=today))
+    session.commit()
+
+    cards, _ = DeckBuilder(session).build_daily_deck(
+        "TESTUSER", limit=10, tag="TEST::P3::CN::第一课", checkpoint=0
+    )
+    assert sorted(c["word_id"] for c in cards) == sorted(cn_ids)
+
+    review_cards, _ = DeckBuilder(session).build_daily_deck(
+        "TESTUSER", limit=15, tag="TEST::P3::CN::第一课", mode="review"
+    )
+    assert {c["word_id"] for c in review_cards} <= set(cn_ids)
+
+
+def test_review_mode_covers_the_whole_lesson_weakest_first(session: Session):
+    session.add(User(name="TESTUSER", grade="P3"))
+    session.commit()
+    ids = _make_words(session, "TEST::P3::EN::Week1", 8)
+    today = Scheduler.today_sg()
+    session.add(ReviewState(user_name="TESTUSER", word_id=ids[5], repetitions=1, due_date=today, fail_count=3))
+    session.add(ReviewState(user_name="TESTUSER", word_id=ids[2], repetitions=4, due_date=today))
+    session.commit()
+
+    cards, _ = DeckBuilder(session).build_daily_deck(
+        "TESTUSER", limit=5, tag="TEST::P3::EN::Week1", mode="review"
+    )
+
+    got = [c["word_id"] for c in cards]
+    assert len(got) == 4  # limit 5 less 1 slot reserved for earlier lessons
+    assert got[0] == ids[5]  # most-missed first
+    assert ids[2] not in got  # well-known word is the last to be picked

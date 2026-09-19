@@ -19,6 +19,19 @@ class Scheduler:
         # clamp
         quality = 0 if quality < 0 else 5 if quality > 5 else quality
 
+        if (
+            quality >= 3
+            and state.repetitions > 0
+            and state.due_date is not None
+            and state.due_date > today
+        ):
+            # Answered again before it was due (typically repeated within
+            # the same study session). That's practice, not a spaced
+            # recall, so it must not advance repetitions/interval - else a
+            # word could reach "mastered" in one sitting.
+            state.last_reviewed_at = datetime.now()
+            return state
+
         if quality < 3:
             state.repetitions = 0
             state.interval_days = 1

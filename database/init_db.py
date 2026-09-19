@@ -2,7 +2,7 @@ from sqlmodel import SQLModel, Session, select
 from src.db_session import engine
 
 def init_db():
-    from src.models import user, word, tag, history, reward, link, game, minigame, review_state, boss, achievement
+    from src.models import user, word, tag, history, reward, link, game, minigame, review_state, boss, achievement, checkpoint_progress
     from src.models.game import Level
     from src.models.minigame import MiniGame
     SQLModel.metadata.create_all(engine)
