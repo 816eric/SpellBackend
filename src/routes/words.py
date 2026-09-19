@@ -1,4 +1,5 @@
-from fastapi import APIRouter
+import json
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from src.db_session import get_session
 from src.models.word import SpellingWord
@@ -6,8 +7,10 @@ from sqlmodel import select
 from src.models.user import User
 from src.services.word_manager import WordManager
 from src.services.tag_manager import TagManager
+from src.services.gemini_service import GeminiService
 
 router = APIRouter(prefix="/words", tags=["Words"])
+gemini = GeminiService(model="gemini-2.0-flash-exp")
 
 class BackCardUpdate(BaseModel):
     back_card: str
@@ -118,6 +121,50 @@ def get_quiz(word_id: int):
         if not word:
             return {"error": "Word not found"}
         return {"quiz": word.quiz}
-    
+
+
+@router.get("/{word_id}/quiz-explanation")
+def get_quiz_explanation(word_id: int):
+    """Why the quiz's correct answer is right, as one kid-friendly sentence
+    (Word Snake's Knowledge Stone quiz shows this after the player answers).
+    Generated once via Gemini and cached back onto the word's `quiz` JSON
+    under an `explanation` key, so repeat plays of the same stone are
+    instant and don't re-hit the LLM."""
+    with get_session() as session:
+        word = session.get(SpellingWord, word_id)
+        if not word or not word.quiz:
+            raise HTTPException(status_code=404, detail="Word or quiz not found")
+        try:
+            quiz_data = json.loads(word.quiz)
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="Malformed quiz data")
+
+        cached = quiz_data.get("explanation")
+        if cached:
+            return {"explanation": cached}
+
+        options = quiz_data.get("options") or []
+        correct_idx = quiz_data.get("correct")
+        if not isinstance(correct_idx, int) or not (0 <= correct_idx < len(options)):
+            raise HTTPException(status_code=400, detail="Malformed quiz data")
+
+        try:
+            explanation = gemini.explain_quiz_answer(
+                word=word.text,
+                question=quiz_data.get("question", ""),
+                options=options,
+                correct_option=options[correct_idx],
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=502, detail=f"Explanation generation failed: {e}"
+            )
+
+        quiz_data["explanation"] = explanation
+        word.quiz = json.dumps(quiz_data)
+        session.add(word)
+        session.commit()
+        return {"explanation": explanation}
+
 
 ## This endpoint is now redundant; use get_words with tags param instead

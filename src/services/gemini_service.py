@@ -11,8 +11,13 @@ import google.generativeai as genai
 
 class GeminiService:
     def __init__(self, api_key: str = None, model: str = "gemini-2.0-flash-exp"):
-        self.api_key = api_key or os.getenv("Gemini_key")
-        self.api_key = "AIzaSyAaXdGQdflEhPh1UcwxVGn1zc7woQtCn1Y"
+        # `Gemini_key` env var (e.g. a Fly secret) takes priority; the
+        # literal below is only a last-resort fallback. It used to be
+        # unconditionally overwritten right after this line, which meant
+        # setting `Gemini_key` had no effect at all - fixed since that key
+        # is now revoked (400 API_KEY_INVALID) and needs to be replaceable
+        # without a code change.
+        self.api_key = api_key or os.getenv("Gemini_key") or "AIzaSyAaXdGQdflEhPh1UcwxVGn1zc7woQtCn1Y"
         if not self.api_key:
             raise ValueError("Google Gemini API key not set.")
         genai.configure(api_key=self.api_key)
@@ -47,6 +52,31 @@ class GeminiService:
             return words
         except Exception as e:
             raise RuntimeError(f"Gemini Vision API error: {e}")
+
+    def explain_quiz_answer(
+        self, word: str, question: str, options: List[str], correct_option: str
+    ) -> str:
+        """One short, kid-friendly sentence on why `correct_option` is right
+        for this vocabulary quiz question - used by the Word Snake game's
+        Knowledge Stone quiz to teach the reasoning, not just reveal the
+        answer. Written in the same language as the question, since these
+        quizzes are Chinese-language vocab questions as often as English."""
+        prompt = (
+            "You are a friendly elementary-school teacher. A student was asked "
+            f"this vocabulary quiz question about the word '{word}':\n"
+            f"Question: {question}\n"
+            f"Options: {', '.join(options)}\n"
+            f"Correct answer: {correct_option}\n\n"
+            "In ONE short sentence (max 25 words), explain *why* this is the "
+            "correct answer, in a way a child would understand. Respond in "
+            "the same language as the question. Do not repeat the question "
+            "or restate the options - just give the reason."
+        )
+        try:
+            response = self.client.generate_content(prompt)
+            return response.text.strip()
+        except Exception as e:
+            raise RuntimeError(f"Gemini API error (quiz explanation): {e}")
 
     def generate_story(self, words: List[str]) -> str:
         prompt = (
