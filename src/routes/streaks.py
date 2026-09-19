@@ -3,6 +3,7 @@ from sqlmodel import Session, select
 from src.db_session import get_session_dep
 from src.services.streak_manager import StreakManager
 from src.models.user import User
+from src.models.game import LevelProgress
 from sqlalchemy import func
 
 router = APIRouter(prefix="/streaks", tags=["streaks"])
@@ -24,6 +25,13 @@ def get_streak(user_name: str, session: Session = Depends(get_session_dep)):
     streak = manager.get_user_streak(user.id)
     login_check = manager.check_daily_login(user.id)
 
+    levels_completed = session.exec(
+        select(func.count()).select_from(LevelProgress).where(
+            LevelProgress.user_id == user.id,
+            LevelProgress.status == "completed",
+        )
+    ).one()
+
     # Convert snake_case to camelCase for frontend compatibility
     return {
         "totalPoints": int(user.total_points) if user.total_points else 0,
@@ -33,7 +41,7 @@ def get_streak(user_name: str, session: Session = Depends(get_session_dep)):
         "username": user.name,
         "grade": user.grade if hasattr(user, 'grade') else None,
         "equippedCosmetic": None,
-        "levelsCompleted": 0,
+        "levelsCompleted": int(levels_completed),
         "accuracy": 0.0,
         "level": 1,
         # Keep these for backward compatibility

@@ -18,7 +18,7 @@ class StreakManager:
             # Get login history (study events)
             query = text("""
                 SELECT DATE(timestamp) as login_date
-                FROM reward_history
+                FROM rewardhistory
                 WHERE reason IN ('study', 'level_complete')
                 ORDER BY timestamp DESC
                 LIMIT 30
