@@ -11,7 +11,6 @@ from src.services.checkpoints import (
     REVIEW_CHECKPOINT_INDEX,
     chunk_word_ids,
     current_checkpoint_index,
-    is_word_mastered,
     passed_checkpoint_indices,
 )
 from src.models.user import User
@@ -337,16 +336,15 @@ class LessonManager:
             checkpoint_chunks = chunk_word_ids(sorted(word_ids))
             checkpoint_count = len(checkpoint_chunks)
             recorded = recorded_by_lesson.get(g["lesson_key"], set())
-            passed = passed_checkpoint_indices(checkpoint_chunks, state_by_word, recorded)
+            passed = passed_checkpoint_indices(checkpoint_chunks, recorded)
             checkpoint_index = current_checkpoint_index(checkpoint_count, passed)
             all_points_passed = checkpoint_count > 0 and len(passed) == checkpoint_count
-            # The review node counts as passed once a review session was
-            # completed, or for a lesson whose words are all already
-            # mastered (progress made before review nodes existed).
-            review_passed = all_points_passed and (
-                REVIEW_CHECKPOINT_INDEX in recorded
-                or all(is_word_mastered(state_by_word.get(wid)) for wid in word_ids)
-            )
+            # The review node counts as passed once a review session for
+            # *this* lesson was actually completed - not just because its
+            # words happen to already be mastered via another lesson that
+            # reuses them (lessons here commonly share words), which used
+            # to mark it passed without the user ever reviewing it here.
+            review_passed = all_points_passed and REVIEW_CHECKPOINT_INDEX in recorded
             review_due_count = sum(
                 1 for wid in word_ids
                 if wid in state_by_word

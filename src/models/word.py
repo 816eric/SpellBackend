@@ -8,3 +8,8 @@ class SpellingWord(SQLModel, table=True):
     created_by: Optional[str] = Field(default="admin")
     back_card: Optional[str] = Field(default=None)
     quiz: Optional[str] = Field(default=None)
+    # Hanyu Pinyin with tone marks (e.g. "yī"), and a short English gloss.
+    # Used by the MOE Chinese Word Cards flip-card feature; left null for
+    # words that predate/don't need this (e.g. English words).
+    pinyin: Optional[str] = Field(default=None)
+    meaning: Optional[str] = Field(default=None)

@@ -10,6 +10,7 @@ from src.models.word import SpellingWord
 from src.models.tag import Tag
 from src.models.link import UserTagsLink, WordTagLink
 from src.models.review_state import ReviewState
+from src.models.checkpoint_progress import CheckpointProgress
 
 
 @pytest.fixture(name="session")
@@ -260,8 +261,8 @@ def test_lesson_manager_checkpoint_index_agrees_with_deck_builder_scoping(sessio
     session.commit()
     session.refresh(user)
 
-    # 18 words -> checkpoints of 5,5,4,4. First 5 (checkpoint 0) fully
-    # mastered -> checkpoint_index should be 1 (the second chunk).
+    # 18 words -> checkpoints of 5,5,4,4. Checkpoint 0 recorded as passed
+    # -> checkpoint_index should be 1 (the second chunk).
     tag = Tag(tag="T::P1::EN::Week1", created_by="admin")
     session.add(tag)
     session.commit()
@@ -279,6 +280,9 @@ def test_lesson_manager_checkpoint_index_agrees_with_deck_builder_scoping(sessio
 
     for wid in word_ids[:5]:
         session.add(ReviewState(user_name="TESTUSER", word_id=wid, repetitions=5))
+    session.add(CheckpointProgress(
+        user_name="TESTUSER", subject="EN", lesson_key="Week1", checkpoint_index=0,
+    ))
     session.commit()
 
     lesson_manager = LessonManager(session)

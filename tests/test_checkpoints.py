@@ -1,4 +1,3 @@
-from src.models.review_state import ReviewState
 from src.services.checkpoints import (
     chunk_word_ids,
     current_checkpoint_index,
@@ -36,23 +35,20 @@ def test_chunk_word_ids_handles_empty_and_single_word():
 
 def test_recorded_checkpoints_count_as_passed():
     chunks = [[1, 2], [3, 4]]
-    assert passed_checkpoint_indices(chunks, {}, {0}) == {0}
+    assert passed_checkpoint_indices(chunks, {0}) == {0}
 
 
 def test_recorded_checkpoint_stays_passed_after_a_later_miss():
     chunks = [[1, 2]]
-    state = {1: ReviewState(user_name="U", word_id=1, repetitions=0, fail_count=1)}
-    assert passed_checkpoint_indices(chunks, state, {0}) == {0}
+    assert passed_checkpoint_indices(chunks, {0}) == {0}
 
 
-def test_fully_mastered_checkpoint_counts_as_passed_without_a_record():
+def test_unrecorded_checkpoint_is_not_passed_even_if_words_are_mastered_elsewhere():
+    # Words shared with another lesson can already be fully mastered without
+    # this lesson's own checkpoint ever having been studied - that must not
+    # count as passing it (see checkpoints.py's docstring).
     chunks = [[1, 2], [3, 4]]
-    state = {
-        1: ReviewState(user_name="U", word_id=1, repetitions=3),
-        2: ReviewState(user_name="U", word_id=2, repetitions=4),
-        3: ReviewState(user_name="U", word_id=3, repetitions=3),
-    }
-    assert passed_checkpoint_indices(chunks, state, set()) == {0}
+    assert passed_checkpoint_indices(chunks, set()) == set()
 
 
 def test_current_checkpoint_is_first_unpassed():

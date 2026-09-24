@@ -1,5 +1,4 @@
-from typing import Dict, List, Set
-from src.models.review_state import ReviewState
+from typing import List, Set
 
 # Checkpoints ("points" on the journey path) aim for this many words each.
 CHECKPOINT_SIZE = 5
@@ -35,29 +34,18 @@ def chunk_word_ids(word_ids: List[int], chunk_size: int = CHECKPOINT_SIZE) -> Li
     return chunks
 
 
-def is_word_mastered(state: ReviewState, mastery_reps: int = MASTERY_REPS) -> bool:
-    return state is not None and state.repetitions >= mastery_reps
-
-
-def passed_checkpoint_indices(
-    chunks: List[List[int]],
-    state_by_word: Dict[int, ReviewState],
-    recorded: Set[int],
-    mastery_reps: int = MASTERY_REPS,
-) -> Set[int]:
+def passed_checkpoint_indices(chunks: List[List[int]], recorded: Set[int]) -> Set[int]:
     """Indices of checkpoints the user has passed. A checkpoint is passed
     once a study session on it was completed (`recorded`, from
     CheckpointProgress) - it stays passed even if a later review misses a
-    word. It also counts as passed when every word is already mastered,
-    which grandfathers in progress made before checkpoint passes were
-    recorded."""
-    passed = set()
-    for i, chunk in enumerate(chunks):
-        if i in recorded or all(
-            is_word_mastered(state_by_word.get(wid), mastery_reps) for wid in chunk
-        ):
-            passed.add(i)
-    return passed
+    word.
+
+    Deliberately does NOT also pass a checkpoint just because every word in
+    it happens to already be mastered (e.g. via overlap with another
+    lesson's words) - lessons in this app commonly reuse the same words, so
+    that shortcut was silently marking checkpoints/reviews passed without
+    the user ever doing a session for *that* lesson."""
+    return {i for i in range(len(chunks)) if i in recorded}
 
 
 def current_checkpoint_index(chunk_count: int, passed: Set[int]) -> int:

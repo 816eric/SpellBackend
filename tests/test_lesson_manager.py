@@ -66,6 +66,14 @@ def _make_sgp_lesson(session, tag_str, grade, subject, word_texts, reps_by_word)
     session.commit()
 
 
+def _record_pass(session, user, subject, lesson_key, index):
+    from src.models.checkpoint_progress import CheckpointProgress
+    session.add(CheckpointProgress(
+        user_name=user.name, subject=subject, lesson_key=lesson_key, checkpoint_index=index,
+    ))
+    session.commit()
+
+
 def test_lesson_at_80_percent_is_not_completed(session: Session):
     """4 of 5 words fully mastered (reps=5), 1 word untouched (reps=0) ->
     mastery_pct == 0.8, which must NOT unlock the next lesson or award 3 stars
@@ -88,7 +96,32 @@ def test_lesson_at_80_percent_is_not_completed(session: Session):
 
 
 def test_lesson_at_100_percent_is_completed_with_3_stars(session: Session):
-    """All words fully mastered -> mastery_pct == 1.0, status completed, 3 stars."""
+    """All words fully mastered, and this lesson's own checkpoint + review
+    recorded as passed -> mastery_pct == 1.0, status completed, 3 stars."""
+    user = User(name="TESTUSER", grade="P1")
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+
+    _make_lesson(session, user, "Week1", 1, "EN",
+                 ["a", "b", "c", "d", "e"], [5, 5, 5, 5, 5])
+    _record_pass(session, user, "EN", "Week1", 0)
+    _record_pass(session, user, "EN", "Week1", -1)
+
+    manager = LessonManager(session)
+    lessons = manager.list_lessons_for_user(user, "EN")
+
+    assert lessons[0]["mastery_pct"] == 1.0
+    assert lessons[0]["status"] == "completed"
+    assert lessons[0]["stars"] == 3
+
+
+def test_full_mastery_alone_does_not_complete_a_lesson(session: Session):
+    """Words can be fully mastered without this lesson's own checkpoint ever
+    being recorded as passed - e.g. because they're shared with another
+    lesson already studied. Mastery/stars still reflect that, but the
+    lesson must NOT complete (or unlock the next one) without an actual
+    recorded pass of its own checkpoint and review."""
     user = User(name="TESTUSER", grade="P1")
     session.add(user)
     session.commit()
@@ -101,21 +134,23 @@ def test_lesson_at_100_percent_is_completed_with_3_stars(session: Session):
     lessons = manager.list_lessons_for_user(user, "EN")
 
     assert lessons[0]["mastery_pct"] == 1.0
-    assert lessons[0]["status"] == "completed"
     assert lessons[0]["stars"] == 3
+    assert lessons[0]["review_passed"] is False
+    assert lessons[0]["status"] != "completed"
 
 
-def test_second_lesson_unlocks_only_once_first_hits_100_percent(session: Session):
-    """With two lessons, the second must stay 'locked' while the first is at
-    80% (previously enough to unlock it), and become 'current' once the first
-    reaches 100%."""
+def test_second_lesson_unlocks_only_once_first_lessons_review_is_recorded(session: Session):
+    """With two lessons, the second must stay 'locked' even once the first's
+    words are 100% mastered (e.g. via words shared with another lesson) -
+    it only unlocks once the first lesson's checkpoint AND review are
+    actually recorded as passed."""
     user = User(name="TESTUSER", grade="P1")
     session.add(user)
     session.commit()
     session.refresh(user)
 
-    week1_word_ids = _make_lesson(session, user, "Week1", 1, "EN",
-                                   ["a", "b", "c", "d", "e"], [5, 5, 5, 5, 0])  # 80%
+    _make_lesson(session, user, "Week1", 1, "EN",
+                 ["a", "b", "c", "d", "e"], [5, 5, 5, 5, 5])  # fully mastered
     _make_lesson(session, user, "Week2", 1, "EN",
                  ["f", "g"], [])  # untouched
 
@@ -126,9 +161,8 @@ def test_second_lesson_unlocks_only_once_first_hits_100_percent(session: Session
     assert by_key["Week1"]["status"] == "current"
     assert by_key["Week2"]["status"] == "locked"
 
-    # Bump the 5th word ("e") in Week1 up to full mastery -> Week1 hits 100%.
-    session.add(ReviewState(user_name=user.name, word_id=week1_word_ids[4], repetitions=5))
-    session.commit()
+    _record_pass(session, user, "EN", "Week1", 0)
+    _record_pass(session, user, "EN", "Week1", -1)
 
     lessons2 = manager.list_lessons_for_user(user, "EN")
     by_key2 = {l["lesson_key"]: l for l in lessons2}
@@ -137,8 +171,8 @@ def test_second_lesson_unlocks_only_once_first_hits_100_percent(session: Session
 
 
 def test_checkpoint_fields_for_a_partially_mastered_lesson(session: Session):
-    """18 words -> 4 checkpoints (5,5,5,3). First 5 words fully mastered,
-    the 6th (first word of checkpoint 2) is not -> checkpoint_index == 1."""
+    """18 words -> 4 checkpoints (5,5,5,3). Checkpoint 0 recorded as passed
+    (regardless of the words' own mastery) -> checkpoint_index == 1."""
     user = User(name="TESTUSER", grade="P1")
     session.add(user)
     session.commit()
@@ -147,6 +181,7 @@ def test_checkpoint_fields_for_a_partially_mastered_lesson(session: Session):
     word_texts = [f"word{i}" for i in range(18)]
     reps = [5, 5, 5, 5, 5, 2] + [0] * 12
     _make_lesson(session, user, "Week1", 1, "EN", word_texts, reps)
+    _record_pass(session, user, "EN", "Week1", 0)
 
     manager = LessonManager(session)
     lessons = manager.list_lessons_for_user(user, "EN")
@@ -220,14 +255,6 @@ def test_non_guest_user_is_not_scope_restricted(session: Session):
     lessons = manager.list_lessons_for_user(user, "CN")
 
     assert [l["lesson_key"] for l in lessons] == ["Week1"]
-
-
-def _record_pass(session, user, subject, lesson_key, index):
-    from src.models.checkpoint_progress import CheckpointProgress
-    session.add(CheckpointProgress(
-        user_name=user.name, subject=subject, lesson_key=lesson_key, checkpoint_index=index,
-    ))
-    session.commit()
 
 
 def test_lessons_report_each_checkpoints_words_and_passed_flag(session: Session):

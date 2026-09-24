@@ -35,6 +35,16 @@ def init_db():
             conn.execute("ALTER TABLE minigame ADD COLUMN native_key VARCHAR;")
             conn.commit()
 
+        # Additive migration: spellingword table predates the MOE Chinese
+        # Word Cards pinyin/meaning columns.
+        existing_word_columns = {row[1] for row in conn.execute("PRAGMA table_info(spellingword);")}
+        if "pinyin" not in existing_word_columns:
+            conn.execute("ALTER TABLE spellingword ADD COLUMN pinyin VARCHAR;")
+            conn.commit()
+        if "meaning" not in existing_word_columns:
+            conn.execute("ALTER TABLE spellingword ADD COLUMN meaning VARCHAR;")
+            conn.commit()
+
         existing_review_state_columns = {row[1] for row in conn.execute("PRAGMA table_info(reviewstate);")}
         if "fail_count" not in existing_review_state_columns:
             conn.execute("ALTER TABLE reviewstate ADD COLUMN fail_count INTEGER DEFAULT 0;")
