@@ -1,9 +1,10 @@
 """MOE (Singapore Ministry of Education) curriculum word cards.
 
-Currently serves Primary 1 Chinese characters (see
-database/seed_moe_p1.py for the seed data and tag scheme). Grades other
-than P1 return an empty lesson list (not an error) so the frontend can
-show a graceful "coming soon" state.
+Serves Primary 1-6 Chinese characters (see database/seed_moe_p1.py and
+database/moe_data_p2_p6.py for the seed data, database/seed_moe_words.py
+for the shared seeding logic, and the tag scheme below). An unrecognized
+grade returns an empty lesson list (not an error) so the frontend can show
+a graceful "coming soon" state.
 """
 import re
 from typing import Optional
@@ -20,7 +21,7 @@ router = APIRouter(prefix="/moe-words", tags=["MOE Word Cards"])
 
 # "MOE::P1::上::第一课" -> ("P1", "上", "第一课")
 _LESSON_TAG_RE = re.compile(r"^MOE::(P\d+)::(上|下)::(第[一二三四五六七八九十]+课)$")
-WRITE_TAG_NAME = "MOE::P1::写字"
+SUPPORTED_GRADES = {"P1", "P2", "P3", "P4", "P5", "P6"}
 
 _CJK_NUM = {"一": 1, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7,
             "八": 8, "九": 9, "十": 10, "十一": 11, "十二": 12, "十三": 13,
@@ -40,7 +41,7 @@ def get_moe_words(grade: str = "P1", user_name: Optional[str] = None):
     each with pinyin, meaning, whether it's write-required (识写字), and
     the requesting user's practiced_count (0 if never studied)."""
     grade = (grade or "").upper()
-    if grade != "P1":
+    if grade not in SUPPORTED_GRADES:
         return {"grade": grade, "supported": False, "lessons": []}
 
     with get_session() as session:
@@ -48,7 +49,8 @@ def get_moe_words(grade: str = "P1", user_name: Optional[str] = None):
             select(Tag).where(Tag.label_type == "MOE")
         ).all()
 
-        write_tag = next((t for t in all_tags if t.tag == WRITE_TAG_NAME), None)
+        write_tag_name = f"MOE::{grade}::写字"
+        write_tag = next((t for t in all_tags if t.tag == write_tag_name), None)
         write_word_ids = set()
         if write_tag:
             write_word_ids = set(

@@ -152,3 +152,12 @@ def init_db():
                 )
                 session.add(existing_snake)
                 session.commit()
+
+        # Idempotent MOE (Singapore) curriculum word-card seed, P1-P6. Safe
+        # to run on every startup: checks for existing words/tags/links
+        # before inserting anything, so this is a fast no-op after the
+        # first run. This is what makes a fresh production DB (e.g. a new
+        # Fly volume) get populated automatically on deploy, with no manual
+        # seed step required.
+        from database.seed_moe_words import seed_all_moe_words
+        seed_all_moe_words(session)
