@@ -20,6 +20,7 @@ class StudyTracker:
 
         user = self.session.get(User, user_name)
         user.total_points += 1
+        user.coins += 1
 
         reward = RewardHistory(user_name=user_name, action="earn", points=1, reason="study", timestamp=now)
         self.session.add(reward)

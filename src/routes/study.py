@@ -70,6 +70,7 @@ def submit_review(name: str, payload: ReviewRequest):
             session.add(hist)
 
         user.total_points += 1
+        user.coins += 1
         session.add(RewardHistory(user_name=name, action="earn", points=1, reason="review", timestamp=now))
 
         session.commit()
@@ -83,5 +84,6 @@ def submit_review(name: str, payload: ReviewRequest):
                 "last_reviewed_at": state.last_reviewed_at.isoformat() if state.last_reviewed_at else None
             },
             "points_awarded": 1,
-            "total_points": user.total_points
+            "total_points": user.total_points,
+            "coins": user.coins
         }

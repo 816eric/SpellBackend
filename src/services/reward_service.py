@@ -29,6 +29,8 @@ class RewardService:
         ).all()
         return {
             "total_points": user.total_points or 0,
+            "coins": user.coins or 0,
+            "gems": user.gems or 0,
             "history_preview": [
                 {
                     "timestamp": h.timestamp.isoformat() if h.timestamp else None,
@@ -48,8 +50,11 @@ class RewardService:
         user = manager.get_user(user_name)
         if not user:
             raise ValueError("User not found")
-        # add points & create history
+        # add points & create history. coins is spendable currency and is
+        # earned in lockstep with XP (total_points) everywhere the latter
+        # increases - see the coins/gems design notes on User.
         user.total_points = (user.total_points or 0) + points
+        user.coins = (user.coins or 0) + points
         now = datetime.now()
         hist = RewardHistory(
             user_name=user_name,
@@ -60,19 +65,28 @@ class RewardService:
         )
         self.session.add(hist)
         self.session.commit()
-        return {"ok": True, "total_points": user.total_points, "points_earned": points}
+        return {
+            "ok": True,
+            "total_points": user.total_points,
+            "coins": user.coins,
+            "points_earned": points,
+        }
 
     def redeem(self, user_name: str, item: str, points: int) -> Dict[str, Any]:
+        """Spend coins (not XP - XP is never decremented) for a generic
+        item. Note: unused by the current Flutter frontend, but kept
+        consistent with the other coin-spend gates (minigames, streak
+        revive, cosmetics)."""
         if points <= 0:
             raise ValueError("points must be positive")
         manager = UserManager(self.session)
         user = manager.get_user(user_name)
         if not user:
             raise ValueError("User not found")
-        if (user.total_points or 0) < points:
+        if (user.coins or 0) < points:
             raise InsufficientPoints("insufficient_points")
         # deduct & create history
-        user.total_points = (user.total_points or 0) - points
+        user.coins = (user.coins or 0) - points
         now = datetime.now()
         hist = RewardHistory(
             user_name=user_name,
@@ -84,7 +98,7 @@ class RewardService:
         self.session.add(hist)
         # Optional: update last_point_earned_at for tie-breaker — for redeem we leave it as is
         self.session.commit()
-        return {"ok": True, "total_points": user.total_points}
+        return {"ok": True, "coins": user.coins}
 
     def history_page(self, user_name: str, page: int) -> Dict[str, Any]:
         if page < 1:

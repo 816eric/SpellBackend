@@ -63,6 +63,23 @@ def init_db():
             conn.execute("ALTER TABLE user ADD COLUMN last_chest_claim_date VARCHAR;")
             conn.commit()
 
+        # Additive migration: user table predates the coins/gems currency
+        # split (previously everything was just total_points). Backfill
+        # coins = total_points ONE TIME, right here inside the
+        # column-doesn't-exist-yet branch, so it runs exactly once at
+        # column-creation time. Do NOT move this backfill outside this
+        # branch - on every later startup this column already exists, the
+        # branch is skipped, and coins is left alone (it may have since been
+        # spent, and re-running the backfill would wrongly reset it back to
+        # the user's current XP).
+        if "coins" not in existing_user_columns:
+            conn.execute("ALTER TABLE user ADD COLUMN coins INTEGER DEFAULT 0;")
+            conn.execute("UPDATE user SET coins = total_points;")
+            conn.commit()
+        if "gems" not in existing_user_columns:
+            conn.execute("ALTER TABLE user ADD COLUMN gems INTEGER DEFAULT 0;")
+            conn.commit()
+
         tag_count = conn.execute("SELECT COUNT(*) FROM tag;").fetchone()[0]
         if tag_count == 0:
             # Drop and recreate UserTagsLink

@@ -10,6 +10,10 @@ from src.models.boss import BossDefeat
 # for what actually gets credited to the user's points).
 BOSS_REWARD_POINTS = {1: 100, 2: 200, 3: 300}
 
+# Small additive gems bonus for defeating a boss for the first time, on top
+# of the XP/coins reward above.
+BOSS_GEM_REWARD = 2
+
 
 class BossService:
     def __init__(self, session: Session):
@@ -45,14 +49,21 @@ class BossService:
 
         points = BOSS_REWARD_POINTS.get(boss_id, 0)
         total_points = user.total_points or 0
+        gems_earned = 0
         if points > 0:
             reward = RewardService(self.session).add_points(
                 user_name, points, f"Defeated boss {boss_id}"
             )
             total_points = reward["total_points"]
 
+            gems_earned = BOSS_GEM_REWARD
+            user.gems = (user.gems or 0) + gems_earned
+            self.session.add(user)
+            self.session.commit()
+
         return {
             "first_time": True,
             "points_earned": points,
             "total_points": total_points,
+            "gems_earned": gems_earned,
         }

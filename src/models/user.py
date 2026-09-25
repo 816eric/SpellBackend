@@ -10,7 +10,18 @@ class User(SQLModel, table=True):
     phone: Optional[str] = ""
     school: Optional[str] = ""
     grade: Optional[str] = ""
+    # "XP" in the frontend - unified score, never spent/decremented. Still
+    # drives the leaderboard ranking and level/achievement thresholds.
     total_points: int = 0
+    # Spendable currency, earned in lockstep with total_points (every earn
+    # site that increments total_points also increments coins by the same
+    # amount) and decremented by minigame unlocks/plays, streak revives, and
+    # cosmetic redemptions. Backfilled from total_points for existing users
+    # the one time this column was added - see database/init_db.py.
+    coins: int = 0
+    # Bonus currency, not spent anywhere yet. Granted only as a small extra
+    # on top of existing rewards: boss victories and achievement unlocks.
+    gems: int = 0
     #is_admin: bool = False
 
     # Daily cap on minigame play time (see MiniGameManager). playtime_date

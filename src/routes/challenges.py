@@ -69,8 +69,9 @@ def complete_challenge(
     challenge.completed_at = datetime.utcnow()
     challenge.winner_id = winner.id
 
-    # Award points to winner
+    # Award points to winner (coins earned in lockstep with XP)
     winner.total_points += challenge.points_at_stake
+    winner.coins += challenge.points_at_stake
 
     session.add_all([challenge, winner])
     session.commit()

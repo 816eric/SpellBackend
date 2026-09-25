@@ -118,11 +118,11 @@ class StreakManager:
         if not user:
             return {"ok": False, "message": "User not found"}
 
-        if user.total_points < points_cost:
+        if user.coins < points_cost:
             return {"ok": False, "message": "Insufficient points"}
 
-        # Deduct points
-        user.total_points -= points_cost
+        # Deduct coins (XP is never spent)
+        user.coins -= points_cost
 
         # Log deduction
         history = RewardHistory(
@@ -138,5 +138,5 @@ class StreakManager:
         return {
             "ok": True,
             "message": "Streak revived!",
-            "remaining_points": user.total_points
+            "remaining_points": user.coins
         }

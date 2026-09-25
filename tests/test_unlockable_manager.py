@@ -52,7 +52,7 @@ def test_redeem_success(session: Session):
     """Test successful cosmetic redemption."""
     manager = UnlockableManager(session)
 
-    user = User(name="rich_user", total_points=100)
+    user = User(name="rich_user", total_points=100, coins=100)
     unlockable = Unlockable(
         type="avatar",
         name="Blue Cat",

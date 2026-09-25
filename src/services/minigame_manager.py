@@ -89,7 +89,7 @@ class MiniGameManager:
                 }
                 for g in games
             ],
-            "coins": user.total_points if user else 0,
+            "coins": user.coins if user else 0,
         }
 
     def unlock_minigame(self, user_id: int, minigame_id: int) -> dict:
@@ -111,10 +111,10 @@ class MiniGameManager:
         if already:
             return {"ok": False, "message": "Already unlocked"}
 
-        if user.total_points < game.unlock_cost:
+        if user.coins < game.unlock_cost:
             return {"ok": False, "message": "Not enough coins"}
 
-        user.total_points -= game.unlock_cost
+        user.coins -= game.unlock_cost
         self.session.add(
             UserMiniGameUnlock(user_id=user_id, minigame_id=minigame_id)
         )
@@ -130,7 +130,7 @@ class MiniGameManager:
         return {
             "ok": True,
             "message": f"{game.name} unlocked!",
-            "coins": user.total_points,
+            "coins": user.coins,
         }
 
     def play_minigame(self, user_id: int, minigame_id: int) -> dict:
@@ -155,10 +155,10 @@ class MiniGameManager:
         if not unlocked:
             return {"ok": False, "message": "Game not unlocked yet"}
 
-        if user.total_points < game.play_cost:
+        if user.coins < game.play_cost:
             return {"ok": False, "message": "Not enough coins"}
 
-        user.total_points -= game.play_cost
+        user.coins -= game.play_cost
         if game.play_cost > 0:
             self.session.add(RewardHistory(
                 user_name=user.name,
@@ -174,5 +174,5 @@ class MiniGameManager:
             "gameType": game.game_type,
             "htmlUrl": game.html_url,
             "nativeKey": game.native_key,
-            "coins": user.total_points,
+            "coins": user.coins,
         }

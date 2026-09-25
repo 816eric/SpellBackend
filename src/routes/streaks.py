@@ -35,6 +35,8 @@ def get_streak(user_name: str, session: Session = Depends(get_session_dep)):
     # Convert snake_case to camelCase for frontend compatibility
     return {
         "totalPoints": int(user.total_points) if user.total_points else 0,
+        "coins": int(user.coins) if user.coins else 0,
+        "gems": int(user.gems) if user.gems else 0,
         "currentStreak": int(streak.get("current_streak", 0)),
         "lastLogin": streak.get("last_login"),
         "bestStreak": int(streak.get("best_streak", 0)),

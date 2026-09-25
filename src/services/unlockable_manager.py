@@ -72,12 +72,12 @@ class UnlockableManager:
         if self.session.exec(query).first():
             return {"ok": False, "message": "Already owned"}
 
-        # Check points
-        if user.total_points < unlockable.points_cost:
+        # Check coins (XP is never spent)
+        if user.coins < unlockable.points_cost:
             return {"ok": False, "message": "Insufficient points"}
 
-        # Deduct points
-        user.total_points -= unlockable.points_cost
+        # Deduct coins
+        user.coins -= unlockable.points_cost
 
         # Add to inventory
         user_unlockable = UserUnlockable(
@@ -101,7 +101,7 @@ class UnlockableManager:
         return {
             "ok": True,
             "message": f"Unlocked {unlockable.name}!",
-            "remaining_points": user.total_points,
+            "remaining_points": user.coins,
             "unlockable": {
                 "id": unlockable.id,
                 "name": unlockable.name,

@@ -46,11 +46,19 @@ ACHIEVEMENTS = [
         "id": "first_gem",
         "icon": "🏁",
         "label": "First Gem Earned",
-        # Gems are the same points balance as XP/Coins (see home.dart) -
-        # "earning a gem" is just having any points at all.
+        # This is an XP milestone (any points at all), not a check against
+        # the real gems currency - kept as-is since it predates the
+        # coins/gems split and renaming the id would orphan existing
+        # UserAchievement rows.
         "check": lambda s: s["total_points"] >= 1,
     },
 ]
+
+# Small additive gems bonus granted the moment an achievement is newly
+# unlocked, on top of whatever (if anything) it already grants. Today no
+# achievement grants points itself - this is the only reward tied to
+# unlocking one.
+ACHIEVEMENT_GEM_REWARD = 1
 
 
 class AchievementService:
@@ -104,6 +112,8 @@ class AchievementService:
                     self.session.add(record)
                     unlocked_map[achievement["id"]] = record.unlocked_at
                     newly_unlocked = True
+                    user.gems = (user.gems or 0) + ACHIEVEMENT_GEM_REWARD
+                    self.session.add(user)
 
             unlocked_at = unlocked_map.get(achievement["id"])
             result.append({

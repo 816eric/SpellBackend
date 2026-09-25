@@ -61,7 +61,7 @@ def test_revive_streak_insufficient_points(session: Session):
 
 def test_revive_streak_success(session: Session):
     """Test successful streak revival."""
-    user = User(name="test_user", total_points=100)
+    user = User(name="test_user", total_points=100, coins=100)
     session.add(user)
     session.commit()
 
