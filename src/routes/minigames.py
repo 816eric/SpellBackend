@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlmodel import Session, select
 from src.db_session import get_session_dep
 from src.services.minigame_manager import MiniGameManager
@@ -8,7 +9,7 @@ router = APIRouter(prefix="/minigames", tags=["minigames"])
 
 
 def _get_user(user_name: str, session: Session) -> User:
-    user = session.exec(select(User).where(User.name == user_name)).first()
+    user = session.exec(select(User).where(func.upper(User.name) == user_name.upper())).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user

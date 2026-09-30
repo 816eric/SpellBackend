@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlmodel import Session, select
 from src.db_session import get_session_dep
 from src.models.game import Level, LevelProgress
@@ -50,7 +51,7 @@ def start_level(
     """Mark level as started."""
     try:
         # Get user by name
-        user = session.exec(select(User).where(User.name == user_name)).first()
+        user = session.exec(select(User).where(func.upper(User.name) == user_name.upper())).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 
@@ -105,7 +106,7 @@ def complete_level(
             )
 
         # Get user by name
-        user = session.exec(select(User).where(User.name == user_name)).first()
+        user = session.exec(select(User).where(func.upper(User.name) == user_name.upper())).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 
@@ -128,7 +129,7 @@ def get_user_levels(
     """Get all levels with user's progress."""
     try:
         # Get user by name
-        user = session.exec(select(User).where(User.name == user_name)).first()
+        user = session.exec(select(User).where(func.upper(User.name) == user_name.upper())).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 

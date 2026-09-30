@@ -170,6 +170,39 @@ def init_db():
                 session.add(existing_snake)
                 session.commit()
 
+        # Idempotent: add Word Wheel if this catalog predates it (the
+        # `if not game_count` branch above only fires for a brand-new,
+        # fully empty table).
+        existing_wheel = session.exec(
+            select(MiniGame).where(MiniGame.name == "Word Wheel")
+        ).first()
+        if not existing_wheel:
+            session.add(MiniGame(
+                name="Word Wheel",
+                description="Trace letters to spell your practicing words and fill the crossword.",
+                icon="🎡",
+                game_type="native",
+                native_key="word_wheel",
+                unlock_cost=50,
+                play_cost=10,
+            ))
+            session.commit()
+
+        existing_dog = session.exec(
+            select(MiniGame).where(MiniGame.name == "Flying Dog Reading")
+        ).first()
+        if not existing_dog:
+            session.add(MiniGame(
+                name="Flying Dog Reading",
+                description="Read a story out loud to keep the flying dog above the sea.",
+                icon="🐕",
+                game_type="native",
+                native_key="flying_dog_reading",
+                unlock_cost=50,
+                play_cost=10,
+            ))
+            session.commit()
+
         # Idempotent MOE (Singapore) curriculum word-card seed, P1-P6. Safe
         # to run on every startup: checks for existing words/tags/links
         # before inserting anything, so this is a fast no-op after the

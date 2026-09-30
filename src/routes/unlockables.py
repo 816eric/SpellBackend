@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlmodel import Session, select
 from src.db_session import get_session_dep
 from src.services.unlockable_manager import UnlockableManager
@@ -9,7 +10,7 @@ router = APIRouter(prefix="/unlockables", tags=["unlockables"])
 @router.get("/")
 def list_unlockables(user_name: str, session: Session = Depends(get_session_dep)):
     """List all unlockables with ownership status."""
-    user = session.exec(select(User).where(User.name == user_name)).first()
+    user = session.exec(select(User).where(func.upper(User.name) == user_name.upper())).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -19,7 +20,7 @@ def list_unlockables(user_name: str, session: Session = Depends(get_session_dep)
 @router.post("/{unlockable_id}/redeem")
 def redeem_unlockable(user_name: str, unlockable_id: int, session: Session = Depends(get_session_dep)):
     """Redeem points for a cosmetic."""
-    user = session.exec(select(User).where(User.name == user_name)).first()
+    user = session.exec(select(User).where(func.upper(User.name) == user_name.upper())).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -34,7 +35,7 @@ def redeem_unlockable(user_name: str, unlockable_id: int, session: Session = Dep
 @router.post("/{unlockable_id}/equip")
 def equip_cosmetic(user_name: str, unlockable_id: int, session: Session = Depends(get_session_dep)):
     """Equip a cosmetic."""
-    user = session.exec(select(User).where(User.name == user_name)).first()
+    user = session.exec(select(User).where(func.upper(User.name) == user_name.upper())).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 

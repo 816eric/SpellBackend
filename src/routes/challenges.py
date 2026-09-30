@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlmodel import Session, select
 from src.db_session import get_session_dep
 from src.models.game import Challenge
@@ -15,8 +16,8 @@ def create_challenge(
     session: Session = Depends(get_session_dep)
 ):
     """Create a challenge between two users."""
-    challenger = session.exec(select(User).where(User.name == challenger_name)).first()
-    challengee = session.exec(select(User).where(User.name == challengee_name)).first()
+    challenger = session.exec(select(User).where(func.upper(User.name) == challenger_name.upper())).first()
+    challengee = session.exec(select(User).where(func.upper(User.name) == challengee_name.upper())).first()
 
     if not challenger or not challengee:
         raise HTTPException(status_code=404, detail="User not found")
@@ -61,7 +62,7 @@ def complete_challenge(
     if not challenge:
         raise HTTPException(status_code=404, detail="Challenge not found")
 
-    winner = session.exec(select(User).where(User.name == winner_name)).first()
+    winner = session.exec(select(User).where(func.upper(User.name) == winner_name.upper())).first()
     if not winner:
         raise HTTPException(status_code=404, detail="Winner not found")
 
@@ -85,7 +86,7 @@ def complete_challenge(
 @router.get("/user/{user_name}")
 def get_user_challenges(user_name: str, session: Session = Depends(get_session_dep)):
     """Get user's challenges (pending and completed)."""
-    user = session.exec(select(User).where(User.name == user_name)).first()
+    user = session.exec(select(User).where(func.upper(User.name) == user_name.upper())).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
