@@ -30,7 +30,13 @@ except ImportError:
     print("Google libraries not installed. Run: pip install google-api-python-client google-auth")
 
 
-DATABASE_PATH = Path(__file__).parent / "database" / "db.sqlite3"
+def _db_path() -> Path:
+    # Production DB lives on the Fly volume, not in the app folder.
+    vol = Path("/database/db.sqlite3")
+    return vol if vol.exists() else Path(__file__).parent / "database" / "db.sqlite3"
+
+
+DATABASE_PATH = _db_path()
 BACKUP_DIR = Path(__file__).parent / "backups"
 SCOPES = ['https://www.googleapis.com/auth/drive.file']
 
@@ -66,7 +72,13 @@ def create_local_backup():
     backup_filename = f"db_backup_{timestamp}.sqlite3"
     backup_path = BACKUP_DIR / backup_filename
     
-    shutil.copy2(DATABASE_PATH, backup_path)
+    # SQLite online-backup API: consistent even while the app is writing
+    # (a plain file copy of a live DB can be corrupt).
+    import sqlite3
+    src, dst = sqlite3.connect(DATABASE_PATH), sqlite3.connect(backup_path)
+    with dst:
+        src.backup(dst)
+    src.close(); dst.close()
     print(f"Local backup created: {backup_path}")
     
     return backup_path, backup_filename
