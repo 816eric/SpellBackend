@@ -1,0 +1,15 @@
+# Keep secrets, local data and dev tooling out of the deployed image
+.env
+.env.*
+!.env.example
+.git
+.github
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+backups
+database/*.sqlite3*
+database/.auth_secret
+tts_cache
+tests

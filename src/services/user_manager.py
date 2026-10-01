@@ -6,8 +6,11 @@ from src.models.word import SpellingWord
 from src.models.tag import Tag
 from fastapi import HTTPException
 from datetime import datetime
+from src.security import hash_password
 
 class UserManager:
+    PROFILE_FIELDS = {"password", "age", "email", "phone", "school", "grade"}
+
     def __init__(self, session: Session):
         self.session = session
 
@@ -46,16 +49,20 @@ class UserManager:
         user = self.get_user(name)
         if not user:
             return None
+        # Whitelist: never let a client set points/coins/gems/id/etc. here.
         for key, value in kwargs.items():
-            if key in ("name", "school", "grade", "email") and value:
+            if key not in self.PROFILE_FIELDS:
+                continue
+            if key in ("school", "grade", "email") and value:
                 value = str(value).upper()
             if key == "password":
-                # allow password update if present
-                setattr(user, key, value)
-            elif hasattr(user, key):
-                setattr(user, key, value)
+                if not value:
+                    continue  # empty value means "unchanged"
+                value = hash_password(str(value))
+            setattr(user, key, value)
         self.session.add(user)
         self.session.commit()
+        self.session.refresh(user)
         return user
 
     def get_user_profile(self, name: str):

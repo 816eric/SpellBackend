@@ -22,6 +22,13 @@ from sqlmodel import Session, select
 
 client = TestClient(app)
 
+# Tests act as the operator: the backend accepts the admin Basic credentials
+# on every route, so no per-user token plumbing is needed here.
+os.environ["RATE_LIMIT_DISABLED"] = "true"
+os.environ.setdefault("ADMIN_USERNAME", "test-admin")
+os.environ.setdefault("ADMIN_PASSWORD", "test-admin-pass")
+client.auth = (os.environ["ADMIN_USERNAME"], os.environ["ADMIN_PASSWORD"])
+
 # Test fixtures
 @pytest.fixture(scope="function")
 def test_user_name():

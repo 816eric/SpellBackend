@@ -12,7 +12,7 @@ def get_db_path():
     return Path("database/db.sqlite3")
 
 DB_PATH = get_db_path()
-engine = create_engine(f"sqlite:///{DB_PATH}", echo=True)
+engine = create_engine(f"sqlite:///{DB_PATH}", echo=False)
 
 def get_session():
     """Returns a plain Session for manual `with get_session() as session:`
@@ -34,3 +34,21 @@ def get_session_dep():
 def init_db():
     from database.init_db import init_db as _init_db
     _init_db()
+
+
+def migrate_plaintext_passwords():
+    """One-shot startup migration: hash any legacy plaintext passwords."""
+    from sqlmodel import select
+    from src.models.user import User
+    from src.security import hash_password, is_hashed
+
+    with Session(engine) as session:
+        changed = 0
+        for user in session.exec(select(User)).all():
+            if user.password and not is_hashed(user.password):
+                user.password = hash_password(user.password)
+                session.add(user)
+                changed += 1
+        if changed:
+            session.commit()
+            print(f"Migrated {changed} plaintext password(s) to hashes")

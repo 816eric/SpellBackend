@@ -9,25 +9,36 @@ import google.generativeai as genai
 # In production, use the official Google Gemini SDK or REST API
 
 
+MAX_IMAGE_BYTES = 8 * 1024 * 1024
+
+
 class GeminiService:
     def __init__(self, api_key: str = None, model: str = "gemini-2.0-flash-exp"):
-        # `Gemini_key` env var (e.g. a Fly secret) takes priority; the
-        # literal below is only a last-resort fallback. It used to be
-        # unconditionally overwritten right after this line, which meant
-        # setting `Gemini_key` had no effect at all - fixed since that key
-        # is now revoked (400 API_KEY_INVALID) and needs to be replaceable
-        # without a code change.
-        self.api_key = api_key or os.getenv("Gemini_key") or "AIzaSyAaXdGQdflEhPh1UcwxVGn1zc7woQtCn1Y"
-        if not self.api_key:
-            raise ValueError("Google Gemini API key not set.")
-        genai.configure(api_key=self.api_key)
+        # Key must come from the environment (e.g. `flyctl secrets set Gemini_key=...`).
+        # Never hard-code it: a key committed to git must be treated as leaked.
+        self.api_key = api_key or os.getenv("Gemini_key") or os.getenv("GEMINI_API_KEY")
         self.model = model
-        self.client = genai.GenerativeModel(model)
-        self.vision_client = genai.GenerativeModel(model)
+        self._client = None
+
+    @property
+    def client(self):
+        """Lazy: a missing key disables AI features instead of crashing startup."""
+        if self._client is None:
+            if not self.api_key:
+                raise RuntimeError("AI features are not configured")
+            genai.configure(api_key=self.api_key)
+            self._client = genai.GenerativeModel(self.model)
+        return self._client
+
+    vision_client = client
 
     def extract_words_from_image(self, image_file: UploadFile) -> List[str]:
         # Read image bytes from UploadFile
-        image_bytes = image_file.file.read()
+        image_bytes = image_file.file.read(MAX_IMAGE_BYTES + 1)
+        if len(image_bytes) > MAX_IMAGE_BYTES:
+            raise ValueError("Image too large (max 8 MB)")
+        if (image_file.content_type or "") not in ("image/png", "image/jpeg", "image/webp", "image/heic"):
+            raise ValueError("Unsupported image type")
         # Gemini Vision expects a list of dicts with 'mime_type' and 'data'
         image_data = [{
             "mime_type": image_file.content_type or "image/png",

@@ -17,9 +17,3 @@ def get_logins_for_user(user_name: str):
     with get_session() as session:
         service = LoginHistoryService(session)
         return service.get_logins_for_user(user_name)
-
-@router.get("/")
-def get_all_logins():
-    with get_session() as session:
-        service = LoginHistoryService(session)
-        return service.get_all_logins()

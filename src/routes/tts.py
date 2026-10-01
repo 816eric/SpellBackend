@@ -2,7 +2,7 @@
 Text-to-Speech API Routes
 Provides endpoints for generating and serving TTS audio.
 """
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import Response
 from pydantic import BaseModel
 from typing import Optional
@@ -58,8 +58,8 @@ async def speak(
     if not text or len(text.strip()) == 0:
         raise HTTPException(status_code=400, detail="Text cannot be empty")
     
-    if len(text) > 5000:
-        raise HTTPException(status_code=400, detail="Text too long (max 5000 characters)")
+    if len(text) > 500:
+        raise HTTPException(status_code=400, detail="Text too long (max 500 characters)")
     
     try:
         audio_content = tts_service.synthesize_speech(
@@ -85,7 +85,7 @@ async def speak(
         
     except Exception as e:
         logger.error(f"TTS error: {e}")
-        raise HTTPException(status_code=500, detail=f"TTS generation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="TTS generation failed")
 
 
 @router.post("/speak")
@@ -103,8 +103,8 @@ async def speak_post(request: TTSRequest):
     if not request.text or len(request.text.strip()) == 0:
         raise HTTPException(status_code=400, detail="Text cannot be empty")
     
-    if len(request.text) > 5000:
-        raise HTTPException(status_code=400, detail="Text too long (max 5000 characters)")
+    if len(request.text) > 500:
+        raise HTTPException(status_code=400, detail="Text too long (max 500 characters)")
     
     try:
         audio_content = tts_service.synthesize_speech(
@@ -121,13 +121,13 @@ async def speak_post(request: TTSRequest):
             media_type="audio/mpeg",
             headers={
                 "Cache-Control": "public, max-age=31536000",
-                "Content-Disposition": f'inline; filename="{request.text[:30]}.mp3"'
+                "Content-Disposition": 'inline; filename="tts.mp3"'
             }
         )
         
     except Exception as e:
         logger.error(f"TTS error: {e}")
-        raise HTTPException(status_code=500, detail=f"TTS generation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="TTS generation failed")
 
 
 @router.get("/voices")
@@ -157,7 +157,7 @@ async def get_status():
 
 
 @router.get("/stats")
-async def get_stats():
+async def get_stats(request: Request):
     """
     Get TTS usage statistics including API calls, cache performance, and cost estimates.
     Useful for monitoring usage and staying within free tier limits.

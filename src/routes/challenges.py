@@ -1,10 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import func
 from sqlmodel import Session, select
 from src.db_session import get_session_dep
 from src.models.game import Challenge
 from src.models.user import User
 from datetime import datetime
+
+def _admin(request: Request) -> bool:
+    return getattr(request.state, "is_admin", False)
+
 
 router = APIRouter(prefix="/challenges", tags=["challenges"])
 
@@ -39,11 +43,13 @@ def create_challenge(
     }
 
 @router.post("/{challenge_id}/accept")
-def accept_challenge(challenge_id: int, session: Session = Depends(get_session_dep)):
+def accept_challenge(challenge_id: int, request: Request, session: Session = Depends(get_session_dep)):
     """Accept a challenge."""
     challenge = session.get(Challenge, challenge_id)
     if not challenge:
         raise HTTPException(status_code=404, detail="Challenge not found")
+    if not _admin(request) and challenge.challengee_id != request.state.user_id:
+        raise HTTPException(status_code=403, detail="Only the challenged user can accept")
 
     challenge.status = "accepted"
     session.add(challenge)
@@ -55,6 +61,7 @@ def accept_challenge(challenge_id: int, session: Session = Depends(get_session_d
 def complete_challenge(
     challenge_id: int,
     winner_name: str,
+    request: Request,
     session: Session = Depends(get_session_dep)
 ):
     """Complete a challenge, determine winner."""
@@ -65,6 +72,12 @@ def complete_challenge(
     winner = session.exec(select(User).where(func.upper(User.name) == winner_name.upper())).first()
     if not winner:
         raise HTTPException(status_code=404, detail="Winner not found")
+    if not _admin(request) and request.state.user_id not in (challenge.challenger_id, challenge.challengee_id):
+        raise HTTPException(status_code=403, detail="Not a participant in this challenge")
+    if winner.id not in (challenge.challenger_id, challenge.challengee_id):
+        raise HTTPException(status_code=400, detail="Winner must be a participant")
+    if challenge.status == "completed":
+        raise HTTPException(status_code=409, detail="Challenge already completed")
 
     challenge.status = "completed"
     challenge.completed_at = datetime.utcnow()

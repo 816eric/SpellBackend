@@ -8,6 +8,7 @@ import sqlite3
 import io
 import csv
 import secrets
+import re
 import config.settings as config
 from src.db_session import get_session
 from src.services.word_manager import WordManager
@@ -32,6 +33,33 @@ def authenticate(credentials: HTTPBasicCredentials = Depends(security)):
     if not (correct_username and correct_password):
         raise HTTPException(status_code=401, detail="Unauthorized", headers={"WWW-Authenticate": "Basic"})
 
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+_IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def _table(conn, name: str) -> str:
+    """Return `name` only if it is a real user table (blocks SQL injection
+    through the table_name path parameter)."""
+    row = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name=? AND name NOT LIKE 'sqlite_%'",
+        (name,),
+    ).fetchone()
+    if not row or not _IDENT.match(row[0]):
+        raise HTTPException(status_code=404, detail="Unknown table")
+    return row[0]
+
+
+def _columns(conn, table: str) -> list:
+    return [c[1] for c in conn.execute(f'PRAGMA table_info("{table}")').fetchall()]
+
+
+def _check_cols(conn, table: str, cols) -> None:
+    valid = set(_columns(conn, table))
+    bad = [c for c in cols if c not in valid]
+    if bad:
+        raise HTTPException(status_code=400, detail="Unknown column(s)")
+
+
 @router.get("/admin", response_class=HTMLResponse)
 async def admin_home(request: Request, creds: HTTPBasicCredentials = Depends(authenticate)):    
     print("database using in admin:", DB_PATH)
@@ -51,24 +79,26 @@ async def logout():
 @router.get("/admin/table/{table_name}", response_class=HTMLResponse)
 async def view_table(request: Request, table_name: str, search: str = "", page: int = 1, creds: HTTPBasicCredentials = Depends(authenticate)):
     limit = 200
+    page = max(page, 1)
     offset = (page - 1) * limit
 
     with sqlite3.connect(DB_PATH) as conn:
         c = conn.cursor()
-        c.execute(f"PRAGMA table_info({table_name})")
-        columns = [col[1] for col in c.fetchall()]
+        table_name = _table(conn, table_name)
+        columns = _columns(conn, table_name)
 
         if search:
-            conditions = [f"{col} LIKE ?" for col in columns]
-            sql = f"SELECT rowid, * FROM {table_name} WHERE {' OR '.join(conditions)} LIMIT ? OFFSET ?"
+            conditions = [f'"{col}" LIKE ?' for col in columns]
+            where = " OR ".join(conditions)
+            sql = f'SELECT rowid, * FROM "{table_name}" WHERE {where} LIMIT ? OFFSET ?'
             values = [f"%{search}%"] * len(conditions) + [limit, offset]
             c.execute(sql, values)
             c_total = conn.cursor()
-            c_total.execute(f"SELECT COUNT(*) FROM {table_name} WHERE {' OR '.join(conditions)}", [f"%{search}%"] * len(conditions))
+            c_total.execute(f'SELECT COUNT(*) FROM "{table_name}" WHERE {where}', [f"%{search}%"] * len(conditions))
         else:
-            c.execute(f"SELECT rowid, * FROM {table_name} LIMIT ? OFFSET ?", (limit, offset))
+            c.execute(f'SELECT rowid, * FROM "{table_name}" LIMIT ? OFFSET ?', (limit, offset))
             c_total = conn.cursor()
-            c_total.execute(f"SELECT COUNT(*) FROM {table_name}")
+            c_total.execute(f'SELECT COUNT(*) FROM "{table_name}"')
 
         records = c.fetchall()
         total_records = c_total.fetchone()[0]
@@ -90,7 +120,8 @@ async def delete_row(table_name: str, rowid: int = Form(...), creds: HTTPBasicCr
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute("PRAGMA foreign_keys = ON")  # Ensure foreign key constraints are enforced
         c = conn.cursor()
-        c.execute(f"DELETE FROM {table_name} WHERE rowid=?", (rowid,))
+        table_name = _table(conn, table_name)
+        c.execute(f'DELETE FROM "{table_name}" WHERE rowid=?', (rowid,))
         conn.commit()
     return RedirectResponse(url=f"/admin/table/{table_name}", status_code=303)
 
@@ -101,11 +132,13 @@ async def add_row(table_name: str, request: Request, creds: HTTPBasicCredentials
     values = [form[key] for key in fields]
 
     placeholders = ", ".join("?" for _ in fields)
-    columns = ", ".join(fields)
+    columns = ", ".join(f'"{f}"' for f in fields)
 
     with sqlite3.connect(DB_PATH) as conn:
         c = conn.cursor()
-        c.execute(f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})", values)
+        table_name = _table(conn, table_name)
+        _check_cols(conn, table_name, fields)
+        c.execute(f'INSERT INTO "{table_name}" ({columns}) VALUES ({placeholders})', values)
         conn.commit()
 
     return RedirectResponse(url=f"/admin/table/{table_name}", status_code=303)
@@ -115,14 +148,15 @@ async def edit_row(table_name: str, request: Request, creds: HTTPBasicCredential
     form = await request.form()
     rowid = form.get("rowid")
     fields = [key for key in form.keys() if key not in ("table_name", "rowid")]
-    updates = [f"{field} = ?" for field in fields]
+    updates = [f'"{field}" = ?' for field in fields]
     values = [form[field] for field in fields]
-
-    sql = f"UPDATE {table_name} SET {', '.join(updates)} WHERE rowid = ?"
     values.append(rowid)
 
     with sqlite3.connect(DB_PATH) as conn:
         c = conn.cursor()
+        table_name = _table(conn, table_name)
+        _check_cols(conn, table_name, fields)
+        sql = f'UPDATE "{table_name}" SET {", ".join(updates)} WHERE rowid = ?'
         c.execute(sql, values)
         conn.commit()
 
@@ -132,11 +166,10 @@ async def edit_row(table_name: str, request: Request, creds: HTTPBasicCredential
 async def export_csv(table_name: str, creds: HTTPBasicCredentials = Depends(authenticate)):
     with sqlite3.connect(DB_PATH) as conn:
         c = conn.cursor()
-        c.execute(f"SELECT * FROM {table_name}")
+        table_name = _table(conn, table_name)
+        c.execute(f'SELECT * FROM "{table_name}"')
         rows = c.fetchall()
-
-        c.execute(f"PRAGMA table_info({table_name})")
-        headers = [col[1] for col in c.fetchall()]
+        headers = _columns(conn, table_name)
 
     output = io.StringIO()
     writer = csv.writer(output)
@@ -150,7 +183,9 @@ async def export_csv(table_name: str, creds: HTTPBasicCredentials = Depends(auth
 
 @router.post("/admin/table/{table_name}/import")
 async def import_csv(table_name: str, file: UploadFile = File(...), creds: HTTPBasicCredentials = Depends(authenticate)):
-    content = await file.read()
+    content = await file.read(MAX_UPLOAD_BYTES + 1)
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="File too large")
     content = content.decode("utf-8")
     reader = csv.reader(io.StringIO(content))
     rows = list(reader)
@@ -158,12 +193,14 @@ async def import_csv(table_name: str, file: UploadFile = File(...), creds: HTTPB
     data_rows = rows[1:]
 
     placeholders = ", ".join("?" for _ in headers)
-    columns = ", ".join(headers)
+    columns = ", ".join(f'"{h}"' for h in headers)
 
     with sqlite3.connect(DB_PATH) as conn:
         c = conn.cursor()
+        table_name = _table(conn, table_name)
+        _check_cols(conn, table_name, headers)
         for row in data_rows:
-            c.execute(f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})", row)
+            c.execute(f'INSERT INTO "{table_name}" ({columns}) VALUES ({placeholders})', row)
         conn.commit()
 
     return RedirectResponse(url=f"/admin/table/{table_name}", status_code=303)
@@ -178,36 +215,11 @@ async def import_words_json(
     file: UploadFile = File(...),
     creds: HTTPBasicCredentials = Depends(authenticate)
 ):
-    session = get_session()
-    word_manager = WordManager(session)
-    count = word_manager.import_words_from_json(file.file)
+    with get_session() as session:
+        word_manager = WordManager(session)
+        count = word_manager.import_words_from_json(file.file)
     message = f"Imported {count} unique words from JSON."
     return templates.TemplateResponse("import_words.html", {"request": request, "message": message})
-
-@router.post("/execute_query", response_class=HTMLResponse)
-async def execute_query(request: Request, query: str = Form(...)):
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    try:
-        cursor.execute(query)
-        if query.strip().lower().startswith("select"):
-            rows = cursor.fetchall()
-            columns = [description[0] for description in cursor.description]
-            result = {"columns": columns, "rows": rows}
-            total_entries = len(rows)
-            print(f"Total entries: {total_entries}")
-            return templates.TemplateResponse("query_executor.html", {"request": request, "result": result, "query": query, "total_entries": total_entries})
-        else:
-            conn.commit()
-            return templates.TemplateResponse("query_executor.html", {"request": request, "result": {"columns": ["Status"], "rows": [["Query executed successfully"]]}, "query": query})
-    except Exception as e:
-        return templates.TemplateResponse("query_executor.html", {"request": request, "error": str(e), "query": query})
-    finally:
-        conn.close()
-
-@router.get("/execute_query", response_class=HTMLResponse)
-async def query_executor_page(request: Request):
-    return templates.TemplateResponse("query_executor.html", {"request": request})
 
 # Route to add a column to a table
 @router.post("/admin/table/{table_name}/add_column")
@@ -221,10 +233,13 @@ async def add_column(
     valid_types = {"INTEGER", "TEXT", "REAL", "BLOB"}
     if column_type.upper() not in valid_types:
         raise HTTPException(status_code=400, detail=f"Invalid column type. Must be one of {valid_types}")
+    if not _IDENT.match(column_name):
+        raise HTTPException(status_code=400, detail="Invalid column name")
     with sqlite3.connect(DB_PATH) as conn:
         c = conn.cursor()
+        table_name = _table(conn, table_name)
         try:
-            c.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type.upper()}")
+            c.execute(f'ALTER TABLE "{table_name}" ADD COLUMN "{column_name}" {column_type.upper()}')
             conn.commit()
         except Exception as e:
             raise HTTPException(status_code=400, detail=str(e))
@@ -240,8 +255,11 @@ async def delete_column(
     # SQLite does not support DROP COLUMN directly; workaround is to recreate the table
     with sqlite3.connect(DB_PATH) as conn:
         c = conn.cursor()
+        table_name = _table(conn, table_name)
+        if not _IDENT.match(column_name):
+            raise HTTPException(status_code=400, detail="Invalid column name")
         # Get current columns
-        c.execute(f"PRAGMA table_info({table_name})")
+        c.execute(f'PRAGMA table_info("{table_name}")')
         columns_info = c.fetchall()
         columns = [col[1] for col in columns_info if col[1] != column_name]
         if len(columns) == len(columns_info):
@@ -257,7 +275,7 @@ async def delete_column(
             create_sql = c.fetchone()[0]
             # Remove the column from CREATE statement
             import re
-            pattern = re.compile(rf",?\s*{column_name} [^,)]*")
+            pattern = re.compile(rf",?\s*\"?{re.escape(column_name)}\"? [^,)]*")
             new_create_sql = pattern.sub("", create_sql)
             new_create_sql = new_create_sql.replace(f"{table_name}_old", table_name)
             c.execute(new_create_sql)

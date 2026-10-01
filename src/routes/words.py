@@ -156,9 +156,7 @@ def get_quiz_explanation(word_id: int):
                 correct_option=options[correct_idx],
             )
         except Exception as e:
-            raise HTTPException(
-                status_code=502, detail=f"Explanation generation failed: {e}"
-            )
+            raise HTTPException(status_code=502, detail="Explanation generation failed")
 
         quiz_data["explanation"] = explanation
         word.quiz = json.dumps(quiz_data)

@@ -182,3 +182,11 @@ backups/
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+
+# Local DB snapshots/secrets must never be committed
+database/*.sqlite3*
+database/*local-backup*
+database/.auth_secret
+.auth_secret
+backups/
+.env

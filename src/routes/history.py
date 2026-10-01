@@ -1,4 +1,5 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
+from src.security import require_same_user
 from pydantic import BaseModel, model_validator
 from typing import List, Optional
 from datetime import datetime
@@ -40,7 +41,8 @@ class QuizSessionRequest(BaseModel):
     records: List[QuizRecord]
 
 @router.post("/study-session")
-def save_study_session(data: StudySessionRequest):
+def save_study_session(data: StudySessionRequest, request: Request):
+    require_same_user(request, data.user_name)
     """Save a batch of study records from a study session"""
     with get_session() as session:
         timestamp = datetime.utcnow()
@@ -60,7 +62,8 @@ def save_study_session(data: StudySessionRequest):
         }
 
 @router.post("/quiz-session")
-def save_quiz_session(data: QuizSessionRequest):
+def save_quiz_session(data: QuizSessionRequest, request: Request):
+    require_same_user(request, data.user_name)
     """Save a batch of quiz records from a quiz session"""
     with get_session() as session:
         timestamp = datetime.utcnow()
