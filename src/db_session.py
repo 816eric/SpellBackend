@@ -52,3 +52,8 @@ def migrate_plaintext_passwords():
         if changed:
             session.commit()
             print(f"Migrated {changed} plaintext password(s) to hashes")
+
+
+def encrypt_pii():
+    from src.crypto_fields import encrypt_existing_pii
+    encrypt_existing_pii(engine)

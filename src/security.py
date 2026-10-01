@@ -169,7 +169,6 @@ _PUBLIC = [
     ("POST", re.compile(r"^/users/[^/]+/verify-password$")),  # login
     ("GET", re.compile(r"^/$")),
     ("GET", re.compile(r"^/healthz$")),
-    ("GET", re.compile(r"^/leaderboard/(top|schools|grades)$")),
     ("GET", re.compile(r"^/api/tts/(speak|health|status)$")),
     ("POST", re.compile(r"^/api/tts/speak$")),
     ("GET", re.compile(r"^/moe-words$")),
@@ -309,3 +308,11 @@ def require_same_user(request: Request, name: str):
         return
     if _norm(name) != _norm(getattr(request.state, "user_name", "")):
         raise HTTPException(status_code=403, detail="Not allowed to act as another user")
+
+
+def require_admin(request: Request):
+    """Route guard for operator-only writes (admin Basic credentials)."""
+    from fastapi import HTTPException
+
+    if not getattr(request.state, "is_admin", False):
+        raise HTTPException(status_code=403, detail="Admin only")

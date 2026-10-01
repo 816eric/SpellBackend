@@ -58,6 +58,8 @@ class UserManager:
             if key == "password":
                 if not value:
                     continue  # empty value means "unchanged"
+                if len(str(value)) < 4:
+                    raise HTTPException(status_code=422, detail="Password must be at least 4 characters")
                 value = hash_password(str(value))
             setattr(user, key, value)
         self.session.add(user)

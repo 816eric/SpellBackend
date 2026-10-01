@@ -9,6 +9,8 @@ from src.services.user_manager import UserManager
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
+MIN_PASSWORD_LEN = 4
+
 
 class SignupRequest(BaseModel):
     """Only profile fields are accepted at sign-up - never points/coins/etc."""
@@ -26,6 +28,12 @@ class SignupRequest(BaseModel):
 def create_user(body: SignupRequest):
     with get_session() as session:
         manager = UserManager(session)
+        # Every account except the shared GUEST needs a password.
+        if body.name.strip().upper() != "GUEST" and len(body.password or "") < MIN_PASSWORD_LEN:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Password must be at least {MIN_PASSWORD_LEN} characters",
+            )
         data = body.model_dump(exclude_unset=True)
         if data.get("age") is None:
             data.pop("age", None)
@@ -72,6 +80,9 @@ def verify_password(name: str, password: str = Form("", max_length=128)):
         user = manager.get_user(name)
         # Same response for unknown user and wrong password (no enumeration).
         if not user or not check_password(password, user.password):
+            return {"verified": False}
+        # Passwordless login exists only for the shared GUEST account.
+        if not user.password and user.name.upper() != "GUEST":
             return {"verified": False}
         if user.password and not is_hashed(user.password):
             user.password = hash_password(user.password)  # upgrade legacy plaintext

@@ -1,5 +1,6 @@
 
-from fastapi import APIRouter, HTTPException, Body
+from fastapi import APIRouter, HTTPException, Body, Request
+from src.security import require_admin
 from typing import List
 from ..services.tag_manager import TagManager
 from ..models.tag import Tag
@@ -123,7 +124,8 @@ def get_available_tags_for_user(user_name: str):
 # set via JSON import (WordManager.add_word's spell_date param) run
 # against a local DB, which production has no direct access to.
 @router.put("/{tag_id}/spell-date", response_model=Tag)
-def set_tag_spell_date(tag_id: int, spell_date: str = Body(..., embed=True)):
+def set_tag_spell_date(tag_id: int, request: Request, spell_date: str = Body(..., embed=True)):
+    require_admin(request)  # lesson schedule is operator-managed
     with get_session() as session:
         tag = session.get(Tag, tag_id)
         if not tag:

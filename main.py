@@ -3,7 +3,7 @@ import sys
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from src.routes import users, words, study, rewards, tags, login, ai, settings, history, tts, levels, streaks, unlockables, challenges, lessons, minigames, bosses, achievements, moe_words
-from src.db_session import init_db, migrate_plaintext_passwords
+from src.db_session import init_db, migrate_plaintext_passwords, encrypt_pii
 from src.routes import admin_routes
 from src.routes.admin_routes import authenticate
 from src.routes import leaderboard
@@ -56,6 +56,7 @@ app.add_middleware(
 # Initialize DB
 init_db()
 migrate_plaintext_passwords()
+encrypt_pii()
 
 # Include Routers
 app.include_router(users.router)

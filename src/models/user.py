@@ -1,13 +1,16 @@
 from sqlmodel import SQLModel, Field, Relationship
 from typing import Optional, List
+from sqlalchemy import Column
+from src.crypto_fields import EncryptedString
 
 class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True, index=True)
     name: str = Field(index=True, unique=True)
     password: Optional[str] = ""
     age: Optional[int] = ""
-    email: Optional[str] = ""
-    phone: Optional[str] = ""
+    # PII is encrypted at rest (see crypto_fields.py)
+    email: Optional[str] = Field(default="", sa_column=Column(EncryptedString, default=""))
+    phone: Optional[str] = Field(default="", sa_column=Column(EncryptedString, default=""))
     school: Optional[str] = ""
     grade: Optional[str] = ""
     # "XP" in the frontend - unified score, never spent/decremented. Still

@@ -288,3 +288,23 @@ async def delete_column(
             conn.rollback()
             raise HTTPException(status_code=400, detail=str(e))
     return {"status": "success", "message": f"Column '{column_name}' deleted from '{table_name}'"}
+
+
+@router.post("/admin/users/{name}/password")
+async def admin_set_password(name: str, password: str = Form(..., min_length=4, max_length=128),
+                             creds: HTTPBasicCredentials = Depends(authenticate)):
+    """Operator reset, e.g. for legacy passwordless accounts that can no
+    longer log in (only GUEST may be passwordless)."""
+    from sqlmodel import select
+    from sqlalchemy import func
+    from src.models.user import User
+    from src.security import hash_password
+
+    with get_session() as session:
+        user = session.exec(select(User).where(func.upper(User.name) == name.upper())).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        user.password = hash_password(password)
+        session.add(user)
+        session.commit()
+    return {"status": "success"}

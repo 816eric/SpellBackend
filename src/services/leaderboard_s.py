@@ -95,9 +95,8 @@ class LeaderboardService:
         for idx, u in enumerate(users[:limit], start=1):
             items.append({
                 "rank": idx,
-                "name": u.name,
+                "name": u.name.split("@")[0] if "@" in u.name else u.name,  # don't expose email-style usernames
                 "total_points": u.total_points,
-                "school": u.school,
                 "grade": u.grade,
             })
         scope = {"school": school, "grade": grade}

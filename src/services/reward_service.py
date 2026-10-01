@@ -42,14 +42,26 @@ class RewardService:
             ],
         }
 
-    def add_points(self, user_name: str, points: int, reason: str) -> Dict[str, Any]:
-        """Add points to user account"""
+    def add_points(self, user_name: str, points: int, reason: str, daily_cap: int = None) -> Dict[str, Any]:
+        """Add points to user account. `daily_cap` limits how many points
+        this user may have earned today (all earn sources) via this call."""
         if points <= 0:
             raise ValueError("points must be positive")
         manager = UserManager(self.session)
         user = manager.get_user(user_name)
         if not user:
             raise ValueError("User not found")
+        if daily_cap is not None:
+            start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            earned = self.session.exec(
+                select(func.coalesce(func.sum(RewardHistory.points), 0)).where(
+                    RewardHistory.user_name == user_name,
+                    RewardHistory.action == "earn",
+                    RewardHistory.timestamp >= start,
+                )
+            ).one()
+            if earned + points > daily_cap:
+                raise ValueError("daily point limit reached")
         # add points & create history. coins is spendable currency and is
         # earned in lockstep with XP (total_points) everywhere the latter
         # increases - see the coins/gems design notes on User.

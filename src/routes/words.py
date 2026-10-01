@@ -1,5 +1,6 @@
 import json
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
+from src.security import require_admin
 from pydantic import BaseModel
 from src.db_session import get_session
 from src.models.word import SpellingWord
@@ -19,7 +20,8 @@ class QuizUpdate(BaseModel):
     quiz: str
 
 @router.post("/")
-def add_global_word(word: SpellingWord):
+def add_global_word(word: SpellingWord, request: Request):
+    require_admin(request)  # global (shared) words are operator-managed
     with get_session() as session:
         manager = WordManager(session)
         return manager.add_word(word, user_id=None)
@@ -78,13 +80,26 @@ def get_quiz_pool(limit: int = 100):
             for w in words
         ]
 
+def _check_word_edit(request: Request, word: SpellingWord):
+    """Shared (created_by NULL) words may get AI-generated cards/quizzes from
+    any signed-in user; a user's own words only from that user. Operator can
+    edit anything."""
+    if getattr(request.state, "is_admin", False):
+        return
+    if word.created_by is not None and word.created_by != request.state.user_id:
+        raise HTTPException(status_code=403, detail="Not your word")
+
+
 @router.put("/{word_id}/back-card")
-def update_back_card(word_id: int, data: BackCardUpdate):
+def update_back_card(word_id: int, data: BackCardUpdate, request: Request):
     """Update the back_card field for a word"""
     with get_session() as session:
         word = session.get(SpellingWord, word_id)
         if not word:
             return {"error": "Word not found"}
+        _check_word_edit(request, word)
+        if len(data.back_card) > 20000:
+            raise HTTPException(status_code=413, detail="Too large")
         word.back_card = data.back_card
         session.add(word)
         session.commit()
@@ -101,12 +116,15 @@ def get_back_card(word_id: int):
         return {"back_card": word.back_card}
 
 @router.put("/{word_id}/quiz")
-def update_quiz(word_id: int, data: QuizUpdate):
+def update_quiz(word_id: int, data: QuizUpdate, request: Request):
     """Update the quiz field for a word"""
     with get_session() as session:
         word = session.get(SpellingWord, word_id)
         if not word:
             return {"error": "Word not found"}
+        _check_word_edit(request, word)
+        if len(data.quiz) > 20000:
+            raise HTTPException(status_code=413, detail="Too large")
         word.quiz = data.quiz
         session.add(word)
         session.commit()

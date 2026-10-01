@@ -11,6 +11,8 @@ from src.services.chest_service import ChestService
 
 router = APIRouter(prefix="/users", tags=["Rewards"])
 
+DAILY_CLIENT_POINT_CAP = 500
+
 class RedeemRequest(BaseModel):
     item: str = Field(..., min_length=2, max_length=64)
     points: int = Field(..., gt=0)
@@ -25,7 +27,9 @@ def get_points(name: str, session: Session = Depends(get_session_dep)):
     return svc.get_points(name)
 
 class AddPointsRequest(BaseModel):
-    points: int = Field(..., gt=0)
+    # Client-reported earn (FlutterSpell quiz/study). Capped per call and per
+    # day so a tampered client can't mint unlimited points.
+    points: int = Field(..., gt=0, le=100)
     reason: str = Field(..., min_length=2, max_length=128)
 
 @router.post("/{name}/points/add")
@@ -36,7 +40,7 @@ def add_points(name: str, body: AddPointsRequest, session: Session = Depends(get
         raise HTTPException(status_code=404, detail="User not found")
     svc = RewardService(session)
     try:
-        return svc.add_points(name, body.points, body.reason)
+        return svc.add_points(name, body.points, body.reason, daily_cap=DAILY_CLIENT_POINT_CAP)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
