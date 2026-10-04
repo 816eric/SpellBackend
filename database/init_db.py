@@ -203,6 +203,21 @@ def init_db():
             ))
             session.commit()
 
+        existing_merge = session.exec(
+            select(MiniGame).where(MiniGame.name == "Merge Ten")
+        ).first()
+        if not existing_merge:
+            session.add(MiniGame(
+                name="Merge Ten",
+                description="Drop fruit numbers - touching tiles vanish if they match or add up to 10.",
+                icon="🍉",
+                game_type="native",
+                native_key="merge_ten",
+                unlock_cost=50,
+                play_cost=10,
+            ))
+            session.commit()
+
         # Idempotent MOE (Singapore) curriculum word-card seed, P1-P6. Safe
         # to run on every startup: checks for existing words/tags/links
         # before inserting anything, so this is a fast no-op after the
