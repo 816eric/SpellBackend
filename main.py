@@ -36,7 +36,16 @@ app = FastAPI(
 _extra_origins = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
 _ORIGIN_REGEX = (
     r"^(https://([a-z0-9-]+\.)?(aispell|aispellgame)\.pages\.dev"
-    r"|http://(localhost|127\.0\.0\.1)(:\d+)?)$"
+    r"|http://(localhost|127\.0\.0\.1"
+    # Private LAN IPs (192.168.x.x, 10.x.x.x, 172.16-31.x.x) so a phone/PC
+    # on the same network can reach a locally-run dev backend during
+    # testing. Harmless in production too: a browser on the public
+    # internet can never have a private-IP Origin, so this never applies
+    # to real traffic against the hosted Fly backend.
+    r"|192\.168\.\d{1,3}\.\d{1,3}"
+    r"|10\.\d{1,3}\.\d{1,3}\.\d{1,3}"
+    r"|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}"
+    r")(:\d+)?)$"
 )
 
 # Middleware order: last added runs first (outermost). CORS must be outermost
