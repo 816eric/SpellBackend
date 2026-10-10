@@ -218,6 +218,21 @@ def init_db():
             ))
             session.commit()
 
+        existing_coloring = session.exec(
+            select(MiniGame).where(MiniGame.name == "Color by Number")
+        ).first()
+        if not existing_coloring:
+            session.add(MiniGame(
+                name="Color by Number",
+                description="Tap the matching color, then tap numbered regions to paint a picture.",
+                icon="🎨",
+                game_type="native",
+                native_key="color_by_number",
+                unlock_cost=50,
+                play_cost=10,
+            ))
+            session.commit()
+
         # Idempotent MOE (Singapore) curriculum word-card seed, P1-P6. Safe
         # to run on every startup: checks for existing words/tags/links
         # before inserting anything, so this is a fast no-op after the
