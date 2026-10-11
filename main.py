@@ -2,7 +2,7 @@ import os
 import sys
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from src.routes import users, words, study, rewards, tags, login, ai, settings, history, tts, levels, streaks, unlockables, challenges, lessons, minigames, bosses, achievements, moe_words
+from src.routes import users, words, study, rewards, tags, login, ai, settings, history, tts, levels, streaks, unlockables, challenges, lessons, minigames, bosses, achievements, moe_words, daily_goals
 from src.db_session import init_db, migrate_plaintext_passwords, encrypt_pii
 from src.routes import admin_routes
 from src.routes.admin_routes import authenticate
@@ -89,6 +89,7 @@ app.include_router(minigames.router)
 app.include_router(bosses.router)
 app.include_router(achievements.router)
 app.include_router(moe_words.router)
+app.include_router(daily_goals.router)
 
 # Backup is admin-only (HTTP Basic, same credentials as the /admin console).
 @app.post("/admin/backup")

@@ -1,8 +1,30 @@
 from sqlmodel import SQLModel, Session, select
+import sqlite3
 from src.db_session import engine
 
+def _uppercase_user_names(db_path):
+    """Accounts created before names were stored uppercase (e.g. "jianbo")
+    404 on every route that looks users up by the uppercased name. Rename
+    them - and their user_name references in other tables - to uppercase,
+    skipping any that would collide with an existing uppercase account."""
+    with sqlite3.connect(db_path) as conn:  # foreign keys off (sqlite default)
+        tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")]
+        ref_tables = [
+            t for t in tables
+            if any(c[1] == "user_name" for c in conn.execute(f'PRAGMA table_info("{t}")'))
+        ]
+        for (old,) in conn.execute("SELECT name FROM user WHERE name != UPPER(name)").fetchall():
+            new = old.upper()
+            if conn.execute("SELECT 1 FROM user WHERE name = ?", (new,)).fetchone():
+                continue
+            conn.execute("UPDATE user SET name = ? WHERE name = ?", (new, old))
+            for t in ref_tables:
+                conn.execute(f'UPDATE "{t}" SET user_name = ? WHERE user_name = ?', (new, old))
+        conn.commit()
+
+
 def init_db():
-    from src.models import user, word, tag, history, reward, link, game, minigame, review_state, boss, achievement, checkpoint_progress
+    from src.models import user, word, tag, history, reward, link, game, minigame, review_state, boss, achievement, checkpoint_progress, daily_goal
     from src.models.game import Level
     from src.models.minigame import MiniGame
     SQLModel.metadata.create_all(engine)
@@ -53,6 +75,9 @@ def init_db():
         # Additive migration: user table predates the daily minigame
         # playtime cap columns.
         existing_user_columns = {row[1] for row in conn.execute("PRAGMA table_info(user);")}
+        if "is_tester" not in existing_user_columns:
+            conn.execute("ALTER TABLE user ADD COLUMN is_tester INTEGER DEFAULT 0;")
+            conn.commit()
         if "playtime_seconds_today" not in existing_user_columns:
             conn.execute("ALTER TABLE user ADD COLUMN playtime_seconds_today INTEGER DEFAULT 0;")
             conn.commit()
@@ -104,6 +129,8 @@ def init_db():
                     FOREIGN KEY (tag_id) REFERENCES tag(id) ON DELETE CASCADE
                 );
             """)
+
+    _uppercase_user_names(db_path)
 
     # Seed default levels if none exist
     with Session(engine) as session:

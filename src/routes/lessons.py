@@ -7,6 +7,8 @@ from src.db_session import get_session
 from src.models.user import User
 from src.services.lesson_manager import LessonManager
 
+from src.services.daily_goal_service import record_activity
+
 router = APIRouter(prefix="/lessons", tags=["Lessons"])
 
 
@@ -66,4 +68,7 @@ def pass_checkpoint(user_name: str, payload: CheckpointPassRequest):
                 checkpoint_index=payload.checkpoint_index,
             ))
             session.commit()
+        kind = {"EN": "english", "CN": "chinese"}.get(payload.subject.upper())
+        if kind:
+            record_activity(session, user.name, kind)
         return {"ok": True}

@@ -35,7 +35,9 @@ class UserManager:
         user_data.setdefault('school', "")
         user_data.setdefault('grade', "")
         user_data.setdefault('total_points', 0)
-        # Keep name as provided (lowercase or as given), don't convert to uppercase
+        # Names are stored uppercase: lessons/words/tags look users up by
+        # the uppercased name, so a mixed-case row 404s on Home.
+        user_data['name'] = user.name.strip().upper()
         # password is optional, do not enforce
         new_user = User(**user_data)
         self.session.add(new_user)

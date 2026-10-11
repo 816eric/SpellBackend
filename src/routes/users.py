@@ -88,7 +88,12 @@ def verify_password(name: str, password: str = Form("", max_length=128)):
             user.password = hash_password(user.password)  # upgrade legacy plaintext
             session.add(user)
             session.commit()
-        return {"verified": True, "token": issue_token(user.id, user.name)}
+        return {
+            "verified": True,
+            "token": issue_token(user.id, user.name),
+            # Test accounts must never keep a saved session on the device.
+            "tester": bool(user.is_tester),
+        }
 
 
 @router.delete("/{name}")

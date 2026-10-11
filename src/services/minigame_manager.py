@@ -3,9 +3,10 @@ from datetime import datetime
 from src.models.minigame import MiniGame, UserMiniGameUnlock
 from src.models.user import User
 from src.models.reward import RewardHistory
+from src.services import daily_goal_service
 
-# Daily cap on combined minigame play time, across all games in the store.
-DAILY_PLAYTIME_LIMIT_SECONDS = 15 * 60
+# The daily cap on combined minigame play time (across all games in the
+# store) comes from the daily goals: see daily_goal_service.get_status.
 
 
 class MiniGameManager:
@@ -26,10 +27,13 @@ class MiniGameManager:
             self.session.refresh(user)
 
         used = user.playtime_seconds_today
-        remaining = max(0, DAILY_PLAYTIME_LIMIT_SECONDS - used)
+        limit = daily_goal_service.get_status(self.session, user.name)[
+            "playtimeLimitSeconds"
+        ]
+        remaining = max(0, limit - used)
         return {
             "usedSeconds": used,
-            "limitSeconds": DAILY_PLAYTIME_LIMIT_SECONDS,
+            "limitSeconds": limit,
             "remainingSeconds": remaining,
             "locked": remaining <= 0,
         }
@@ -73,6 +77,8 @@ class MiniGameManager:
         }
 
         user = self.session.get(User, user_id)
+        # Test accounts see every game as free and unlocked.
+        tester = bool(user and user.is_tester)
 
         return {
             "games": [
@@ -83,9 +89,9 @@ class MiniGameManager:
                     "icon": g.icon,
                     "gameType": g.game_type,
                     "nativeKey": g.native_key,
-                    "unlockCost": g.unlock_cost,
-                    "playCost": g.play_cost,
-                    "unlocked": g.id in unlocked_ids or g.unlock_cost == 0,
+                    "unlockCost": 0 if tester else g.unlock_cost,
+                    "playCost": 0 if tester else g.play_cost,
+                    "unlocked": tester or g.id in unlocked_ids or g.unlock_cost == 0,
                 }
                 for g in games
             ],
@@ -110,6 +116,9 @@ class MiniGameManager:
         ).first()
         if already:
             return {"ok": False, "message": "Already unlocked"}
+
+        if user.is_tester:
+            return {"ok": True, "message": "Unlocked", "coins": user.coins}
 
         if user.coins < game.unlock_cost:
             return {"ok": False, "message": "Not enough coins"}
@@ -143,10 +152,13 @@ class MiniGameManager:
         if not game or not game.is_active:
             return {"ok": False, "message": "Game not found"}
 
+        if not daily_goal_service.get_status(self.session, user.name)["allDone"]:
+            return {"ok": False, "message": "Finish today's daily goals to play games"}
+
         if self._playtime_status(user)["locked"]:
             return {"ok": False, "message": "Daily play time limit reached"}
 
-        unlocked = game.unlock_cost == 0 or self.session.exec(
+        unlocked = user.is_tester or game.unlock_cost == 0 or self.session.exec(
             select(UserMiniGameUnlock).where(
                 (UserMiniGameUnlock.user_id == user_id)
                 & (UserMiniGameUnlock.minigame_id == minigame_id)
@@ -154,6 +166,15 @@ class MiniGameManager:
         ).first()
         if not unlocked:
             return {"ok": False, "message": "Game not unlocked yet"}
+
+        if user.is_tester:
+            return {
+                "ok": True,
+                "gameType": game.game_type,
+                "htmlUrl": game.html_url,
+                "nativeKey": game.native_key,
+                "coins": user.coins,
+            }
 
         if user.coins < game.play_cost:
             return {"ok": False, "message": "Not enough coins"}

@@ -33,6 +33,11 @@ class User(SQLModel, table=True):
     playtime_seconds_today: int = 0
     playtime_date: Optional[str] = None
 
+    # Test account: games are always enabled (no daily-goal gate or play
+    # time cap) and the client never keeps its session - it always asks for
+    # the password. Set directly in the DB, never via the profile API.
+    is_tester: bool = False
+
     # YYYY-MM-DD (UTC) the daily treasure chest was last claimed - a
     # mismatch with today's date means it's available again.
     last_chest_claim_date: Optional[str] = None
