@@ -38,3 +38,15 @@ def report_math_time(user_name: str, seconds: int, session: Session = Depends(ge
     user = _get_user(user_name, session)
     svc.record_activity(session, user.name, "math", max(0, min(seconds, 60)))
     return svc.get_status(session, user.name)
+
+
+@router.post("/practice")
+def complete_practice(user_name: str, subject: str, session: Session = Depends(get_session_dep)):
+    """Client reports a finished free-practice session (a completed lesson,
+    which doesn't pass a checkpoint) toward the English/Chinese stage goal."""
+    user = _get_user(user_name, session)
+    kind = {"EN": "english", "CN": "chinese"}.get(subject.upper())
+    if not kind:
+        raise HTTPException(status_code=400, detail="Unknown subject")
+    svc.record_activity(session, user.name, kind)
+    return svc.get_status(session, user.name)
