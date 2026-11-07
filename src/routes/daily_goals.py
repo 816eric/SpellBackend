@@ -45,7 +45,7 @@ def report_practice_time(user_name: str, seconds: int, session: Session = Depend
     """Client reports the seconds a spelling study session took; after the
     first 10 minutes of game time, this practice time is what earns more."""
     user = _get_user(user_name, session)
-    svc.record_activity(session, user.name, "practice", max(0, min(seconds, 1800)))
+    svc.record_activity(session, user.name, "practice", max(0, min(seconds, svc.MAX_EXTRA_PER_ROUND_SECONDS)))  # each session earns under 10 min
     return svc.get_status(session, user.name)
 
 
