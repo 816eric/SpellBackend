@@ -69,6 +69,26 @@ async def admin_home(request: Request, creds: HTTPBasicCredentials = Depends(aut
         tables = [row[0] for row in c.fetchall() if row[0] != "sqlite_sequence"]
     return templates.TemplateResponse("admin_home.html", {"request": request, "tables": tables})
 
+@router.get("/admin/dashboard", response_class=HTMLResponse)
+async def admin_dashboard(request: Request, period: str = "day", names: int = 0, creds: HTTPBasicCredentials = Depends(authenticate)):
+    """Usage dashboard. Admin (HTTP Basic) only. Account names are hidden
+    unless ?names=1 is passed."""
+    from src.services.analytics_service import build_dashboard
+    with get_session() as session:
+        data = build_dashboard(session, period)
+    return templates.TemplateResponse("admin_dashboard.html", {"request": request, "d": data, "show_names": bool(names)})
+
+
+@router.get("/admin/dashboard.json")
+async def admin_dashboard_json(period: str = "day", creds: HTTPBasicCredentials = Depends(authenticate)):
+    from src.services.analytics_service import build_dashboard
+    with get_session() as session:
+        data = build_dashboard(session, period)
+    for row in data["per_user"]:
+        row.pop("name", None)  # ids only in the machine-readable export
+    return data
+
+
 @router.get("/admin/logout", response_class=HTMLResponse)
 async def logout():
     response = RedirectResponse(url="/admin")

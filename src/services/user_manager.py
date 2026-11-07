@@ -1,6 +1,7 @@
 from sqlmodel import Session, select
 from src.models.user import User
 from src.models.history import LoginHistory
+from src.models.usage import UsageDay
 from src.models.link import UserTagsLink
 from src.models.word import SpellingWord
 from src.models.tag import Tag
@@ -38,6 +39,7 @@ class UserManager:
         # Names are stored uppercase: lessons/words/tags look users up by
         # the uppercased name, so a mixed-case row 404s on Home.
         user_data['name'] = user.name.strip().upper()
+        user_data['created_at'] = datetime.utcnow()
         # password is optional, do not enforce
         new_user = User(**user_data)
         self.session.add(new_user)
@@ -127,6 +129,10 @@ class UserManager:
         for log in login_history:
             self.session.delete(log)
         
+        # Delete the usage-time rows kept for the admin dashboard
+        for row in self.session.exec(select(UsageDay).where(UsageDay.user_name == user.name)).all():
+            self.session.delete(row)
+
         # Delete the user
         self.session.delete(user)
         self.session.commit()

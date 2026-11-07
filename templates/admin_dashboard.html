@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Usage Dashboard</title>
+<style>
+  :root { --bg:#f5f6f8; --card:#fff; --ink:#1d2330; --mute:#6b7385; --line:#e3e6ec; --brand:#2f7d5b; --brand2:#8fc9ac; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#14171d; --card:#1d222b; --ink:#e8ebf1; --mute:#98a1b3; --line:#2c3340; --brand:#5cc29a; --brand2:#2f6b52; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:16px; background:var(--bg); color:var(--ink); font:15px/1.45 system-ui,sans-serif; }
+  .wrap { max-width:1100px; margin:0 auto; }
+  header { display:flex; flex-wrap:wrap; gap:8px; align-items:baseline; justify-content:space-between; }
+  h1 { font-size:22px; margin:0; } h2 { font-size:16px; margin:0 0 10px; }
+  a { color:var(--brand); }
+  .mute { color:var(--mute); font-size:13px; }
+  .grid { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); margin:16px 0; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; }
+  .kpi b { display:block; font-size:28px; line-height:1.1; }
+  .kpi span { color:var(--mute); font-size:13px; }
+  section.card { margin-bottom:12px; overflow-x:auto; }
+  .tabs a { display:inline-block; padding:4px 12px; border:1px solid var(--line); border-radius:99px; text-decoration:none; margin-right:6px; font-size:13px; }
+  .tabs a.on { background:var(--brand); color:#fff; border-color:var(--brand); }
+  .chart { display:flex; align-items:flex-end; gap:3px; height:130px; padding-top:8px; }
+  .chart div { flex:1; min-width:6px; background:var(--brand); border-radius:3px 3px 0 0; position:relative; }
+  .chart div.b2 { background:var(--brand2); }
+  .labels { display:flex; gap:3px; font-size:10px; color:var(--mute); }
+  .labels span { flex:1; min-width:6px; text-align:center; overflow:hidden; white-space:nowrap; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:right; padding:6px 8px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  th:first-child, td:first-child { text-align:left; }
+  .two { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); }
+  .privacy { font-size:13px; color:var(--mute); }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>📈 Usage dashboard</h1>
+  <div class="mute">Updated {{ d.generated_at }} · all days are UTC ·
+    <a href="/admin">Admin home</a> · <a href="/admin/logout">Log out</a></div>
+</header>
+
+{% set o = d.overview %}
+<div class="grid">
+  <div class="card kpi"><b>{{ o.registered }}</b><span>Registered users</span></div>
+  <div class="card kpi"><b>{{ o.new_7d }}</b><span>New in last 7 days</span></div>
+  <div class="card kpi"><b>{{ o.new_30d }}</b><span>New in last 30 days</span></div>
+  <div class="card kpi"><b>{{ o.dau }}</b><span>Active today (DAU)</span></div>
+  <div class="card kpi"><b>{{ o.wau }}</b><span>Active 7 days (WAU)</span></div>
+  <div class="card kpi"><b>{{ o.mau }}</b><span>Active 30 days (MAU)</span></div>
+  <div class="card kpi"><b>{{ o.stickiness_pct }}%</b><span>Stickiness (DAU ÷ MAU)</span></div>
+  <div class="card kpi"><b>{{ o.inactive_30d }}</b><span>Inactive 30+ days ({{ o.never_active }} never active)</span></div>
+</div>
+<p class="mute">
+  Active = signed in, studied, took a quiz, hit a daily goal, or had the app open that day.
+  Sign-up dates are recorded only for accounts created after tracking was added
+  ({{ o.signup_date_unknown }} older account{{ '' if o.signup_date_unknown == 1 else 's' }} have no date).
+  Time-spent tracking {% if o.usage_tracked_since %}began {{ o.usage_tracked_since }}{% else %}has not received data yet (it needs the updated app){% endif %}.
+</p>
+
+<section class="card">
+  <h2>Trend</h2>
+  <div class="tabs" style="margin-bottom:8px">
+    {% for p, n in [('day','Daily (30 days)'),('week','Weekly (12 weeks)'),('month','Monthly (12 months)')] %}
+      <a href="?period={{ p }}{% if show_names %}&names=1{% endif %}" class="{{ 'on' if d.period == p }}">{{ n }}</a>
+    {% endfor %}
+  </div>
+  {% macro bars(key, title, unit, alt=false) %}
+    {% set mx = (d.series | map(attribute=key) | max) or 1 %}
+    <div class="mute" style="margin-top:10px">{{ title }} <b>(peak {{ mx }}{{ unit }})</b></div>
+    <div class="chart">
+      {% for r in d.series %}
+        <div class="{{ 'b2' if alt }}" style="height:{{ (100 * r[key] / mx) | round(0) }}%" title="{{ r.label }}: {{ r[key] }}{{ unit }}"></div>
+      {% endfor %}
+    </div>
+    <div class="labels">{% for r in d.series %}<span>{{ r.label if (loop.index0 % (3 if d.series|length > 14 else 1) == 0) else '' }}</span>{% endfor %}</div>
+  {% endmacro %}
+  {{ bars('active_users', 'Active users', '') }}
+  {{ bars('usage_minutes', 'Total time in app', ' min', true) }}
+  {{ bars('new_users', 'New sign-ups', '') }}
+  <table style="margin-top:14px">
+    <tr><th>Period</th><th>Active users</th><th>New users</th><th>Total time (min)</th><th>Avg min / user with time</th></tr>
+    {% for r in d.series | reverse %}
+    <tr><td>{{ r.label }}</td><td>{{ r.active_users }}</td><td>{{ r.new_users }}</td><td>{{ r.usage_minutes }}</td><td>{{ r.avg_minutes_per_user }}</td></tr>
+    {% endfor %}
+  </table>
+</section>
+
+<section class="card">
+  <h2>Time spent per user</h2>
+  <div class="privacy">
+    {% if show_names %}Showing account names. <a href="?period={{ d.period }}">Hide names</a>.
+    {% else %}Accounts are shown by internal ID. <a href="?period={{ d.period }}&names=1">Show account names</a> only if you need to identify someone.{% endif %}
+    Top 200 by last 30 days. Minutes of foreground app time.
+  </div>
+  <table>
+    <tr><th>User</th><th>Today</th><th>7 days</th><th>30 days</th><th>All time</th><th>Active days (30d)</th><th>Last active</th><th>Signed up</th></tr>
+    {% for r in d.per_user %}
+    <tr><td>{% if show_names %}{{ r.name }}{% else %}#{{ r.id }}{% endif %}</td><td>{{ r.today_min }}</td><td>{{ r.week_min }}</td><td>{{ r.month_min }}</td><td>{{ r.total_min }}</td><td>{{ r.active_days_30d }}</td><td>{{ r.last_active or '–' }}</td><td>{{ r.signed_up or '–' }}</td></tr>
+    {% else %}<tr><td colspan="8" class="mute">No users yet.</td></tr>{% endfor %}
+  </table>
+</section>
+
+<div class="two">
+  <section class="card">
+    <h2>Time spent, last 7 days</h2>
+    {% set mx = (d.distribution | map(attribute='users') | max) or 1 %}
+    <table>
+      {% for b in d.distribution %}
+      <tr><td>{{ b.label }}</td><td style="width:55%"><div style="background:var(--brand);height:12px;border-radius:3px;width:{{ (100 * b.users / mx) | round(0) }}%"></div></td><td>{{ b.users }}</td></tr>
+      {% endfor %}
+    </table>
+    <div class="mute">Users with any tracked time that week.</div>
+  </section>
+
+  <section class="card">
+    <h2>Retention (came back on exactly day N)</h2>
+    <table>
+      <tr><th>After sign-up</th><th>Came back</th><th>Out of</th><th>Rate</th></tr>
+      {% for r in d.retention %}
+      <tr><td>Day {{ r.day }}</td><td>{{ r.returned }}</td><td>{{ r.eligible }}</td><td>{{ (r.pct ~ '%') if r.pct is not none else '–' }}</td></tr>
+      {% endfor %}
+    </table>
+    <div class="mute">Only accounts with a recorded sign-up date. Small numbers are noisy.</div>
+  </section>
+
+  <section class="card">
+    <h2>Learning</h2>
+    <table>
+      <tr><th></th><th>7 days</th><th>30 days</th></tr>
+      <tr><td>Words studied</td><td>{{ d.learning.last_7d.words_studied }}</td><td>{{ d.learning.last_30d.words_studied }}</td></tr>
+      <tr><td>Quiz answers</td><td>{{ d.learning.last_7d.quiz_answers }}</td><td>{{ d.learning.last_30d.quiz_answers }}</td></tr>
+      <tr><td>Quiz accuracy</td><td>{{ (d.learning.last_7d.quiz_accuracy_pct ~ '%') if d.learning.last_7d.quiz_accuracy_pct is not none else '–' }}</td><td>{{ (d.learning.last_30d.quiz_accuracy_pct ~ '%') if d.learning.last_30d.quiz_accuracy_pct is not none else '–' }}</td></tr>
+    </table>
+    <h2 style="margin-top:14px">Daily goals (users who did each, 7 days)</h2>
+    <table>
+      {% for k, n in d.daily_goal_users_7d.items() %}<tr><td>{{ k }}</td><td>{{ n }}</td></tr>
+      {% else %}<tr><td class="mute">No activity.</td></tr>{% endfor %}
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>Mini games unlocked (all time)</h2>
+    <table>
+      {% for g in d.minigames %}<tr><td>{{ g.icon }} {{ g.name }}</td><td>{{ g.unlocks }}</td></tr>{% endfor %}
+    </table>
+  </section>
+</div>
+
+<p class="privacy">
+  Privacy: this page uses only account activity counts. Email, phone, age, school and password are never read.
+  The GUEST and test accounts are excluded. Time-spent data is a per-day seconds counter, with no device ID, IP address or location.
+</p>
+</div>
+</body>
+</html>

@@ -16,6 +16,7 @@ from src.models.tag import Tag
 from src.models.link import WordTagLink
 from src.models.word import SpellingWord
 from src.models.history import StudyHistory
+from src.models.review_state import ReviewState
 
 router = APIRouter(prefix="/moe-words", tags=["MOE Word Cards"])
 
@@ -70,11 +71,19 @@ def get_moe_words(grade: str = "P1", user_name: Optional[str] = None):
 
         # Practice counts for this user, if given.
         counts_by_word = {}
+        learned_words = set()
         if user_name:
             hist_rows = session.exec(
                 select(StudyHistory).where(StudyHistory.user_name == user_name.upper())
             ).all()
             counts_by_word = {h.word_id: h.count for h in hist_rows}
+            # "Learned" = the latest SM-2 review was Good/Easy: a Hard/Again
+            # answer resets repetitions to 0, so this reflects words the
+            # kid currently knows, not merely words they've seen.
+            state_rows = session.exec(
+                select(ReviewState).where(ReviewState.user_name == user_name.upper())
+            ).all()
+            learned_words = {s.word_id for s in state_rows if s.repetitions >= 1}
 
         lessons = []
         for tag, term, lesson_name in lesson_tags:
@@ -94,6 +103,7 @@ def get_moe_words(grade: str = "P1", user_name: Optional[str] = None):
                     "meaning": w.meaning,
                     "write_required": w.id in write_word_ids,
                     "practiced_count": counts_by_word.get(w.id, 0),
+                    "learned": w.id in learned_words,
                 }
                 for w in words
             ]

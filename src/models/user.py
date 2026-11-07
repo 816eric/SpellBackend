@@ -1,5 +1,6 @@
 from sqlmodel import SQLModel, Field, Relationship
 from typing import Optional, List
+from datetime import datetime
 from sqlalchemy import Column
 from src.crypto_fields import EncryptedString
 
@@ -26,6 +27,10 @@ class User(SQLModel, table=True):
     # on top of existing rewards: boss victories and achievement unlocks.
     gems: int = 0
     #is_admin: bool = False
+
+    # When the account was created (UTC). NULL for accounts that predate this
+    # column. Used only for the admin dashboard's sign-up counts.
+    created_at: Optional[datetime] = None
 
     # Daily cap on minigame play time (see MiniGameManager). playtime_date
     # is the YYYY-MM-DD (UTC) the seconds counter is for; a mismatch means

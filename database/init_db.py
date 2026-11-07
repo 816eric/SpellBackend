@@ -24,7 +24,7 @@ def _uppercase_user_names(db_path):
 
 
 def init_db():
-    from src.models import user, word, tag, history, reward, link, game, minigame, review_state, boss, achievement, checkpoint_progress, daily_goal
+    from src.models import user, word, tag, history, reward, link, game, minigame, review_state, boss, achievement, checkpoint_progress, daily_goal, usage
     from src.models.game import Level
     from src.models.minigame import MiniGame
     SQLModel.metadata.create_all(engine)
@@ -67,6 +67,19 @@ def init_db():
             conn.execute("ALTER TABLE spellingword ADD COLUMN meaning VARCHAR;")
             conn.commit()
 
+        existing_setting_columns = {row[1] for row in conn.execute("PRAGMA table_info(usersetting);")}
+        if existing_setting_columns and "moe_grade" not in existing_setting_columns:
+            conn.execute("ALTER TABLE usersetting ADD COLUMN moe_grade VARCHAR;")
+            conn.commit()
+
+        if existing_setting_columns and "moe_lessons" not in existing_setting_columns:
+            conn.execute("ALTER TABLE usersetting ADD COLUMN moe_lessons VARCHAR;")
+            conn.commit()
+
+        if existing_setting_columns and "spelling_prefs" not in existing_setting_columns:
+            conn.execute("ALTER TABLE usersetting ADD COLUMN spelling_prefs VARCHAR;")
+            conn.commit()
+
         existing_review_state_columns = {row[1] for row in conn.execute("PRAGMA table_info(reviewstate);")}
         if "fail_count" not in existing_review_state_columns:
             conn.execute("ALTER TABLE reviewstate ADD COLUMN fail_count INTEGER DEFAULT 0;")
@@ -83,6 +96,9 @@ def init_db():
             conn.commit()
         if "playtime_date" not in existing_user_columns:
             conn.execute("ALTER TABLE user ADD COLUMN playtime_date VARCHAR;")
+            conn.commit()
+        if "created_at" not in existing_user_columns:
+            conn.execute("ALTER TABLE user ADD COLUMN created_at DATETIME;")
             conn.commit()
         if "last_chest_claim_date" not in existing_user_columns:
             conn.execute("ALTER TABLE user ADD COLUMN last_chest_claim_date VARCHAR;")
@@ -255,6 +271,21 @@ def init_db():
                 icon="🎨",
                 game_type="native",
                 native_key="color_by_number",
+                unlock_cost=50,
+                play_cost=10,
+            ))
+            session.commit()
+
+        existing_soccer = session.exec(
+            select(MiniGame).where(MiniGame.name == "Silly Soccer")
+        ).first()
+        if not existing_soccer:
+            session.add(MiniGame(
+                name="Silly Soccer",
+                description="Goofy big-head soccer: run, jump and kick to beat the computer in 60 seconds.",
+                icon="⚽",
+                game_type="native",
+                native_key="silly_soccer",
                 unlock_cost=50,
                 play_cost=10,
             ))

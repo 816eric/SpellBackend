@@ -206,6 +206,7 @@ _THROTTLES = [
     ("GET", re.compile(r"^/api/tts/"), 120, 60, False),
     ("POST", re.compile(r"^/api/tts/"), 120, 60, False),
     ("POST", re.compile(r"^/ai/"), 20, 60, False),
+    ("POST", re.compile(r"^/usage/heartbeat$"), 240, 60, False),
     ("GET", re.compile(r"^/words/\d+/quiz-explanation$"), 30, 60, False),
 ]
 
