@@ -60,13 +60,30 @@ def pass_checkpoint(user_name: str, payload: CheckpointPassRequest):
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         key = (user.name, payload.subject.upper(), payload.lesson_key, payload.checkpoint_index)
-        if not session.get(CheckpointProgress, key):
-            session.add(CheckpointProgress(
-                user_name=user.name,
-                subject=payload.subject.upper(),
-                lesson_key=payload.lesson_key,
-                checkpoint_index=payload.checkpoint_index,
-            ))
+        existing = session.get(CheckpointProgress, key)
+        if not existing or existing.lesson_checkpoint_count is None:
+            # Snapshot the lesson's current checkpoint count (best effort).
+            count = None
+            try:
+                for lesson in LessonManager(session).list_lessons_for_user(
+                    user, payload.subject
+                ):
+                    if lesson["lesson_key"] == payload.lesson_key:
+                        count = lesson["checkpoint_count"]
+                        break
+            except Exception:
+                count = None
+            if existing:
+                existing.lesson_checkpoint_count = count
+                session.add(existing)
+            else:
+                session.add(CheckpointProgress(
+                    user_name=user.name,
+                    subject=payload.subject.upper(),
+                    lesson_key=payload.lesson_key,
+                    checkpoint_index=payload.checkpoint_index,
+                    lesson_checkpoint_count=count,
+                ))
             session.commit()
         kind = {"EN": "english", "CN": "chinese"}.get(payload.subject.upper())
         if kind:

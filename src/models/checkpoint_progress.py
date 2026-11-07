@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Optional
 from sqlmodel import SQLModel, Field
 
 
@@ -12,3 +13,7 @@ class CheckpointProgress(SQLModel, table=True):
     lesson_key: str = Field(primary_key=True)
     checkpoint_index: int = Field(primary_key=True)
     passed_at: datetime = Field(default_factory=datetime.now)
+    # How many checkpoints the lesson had when this row was saved. Lets a
+    # completed lesson stay completed if words are later added/removed (which
+    # re-chunks the checkpoints). NULL on rows saved before this existed.
+    lesson_checkpoint_count: Optional[int] = Field(default=None)

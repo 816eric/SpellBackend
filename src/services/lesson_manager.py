@@ -300,6 +300,8 @@ class LessonManager:
             word_ids_by_tag[tag_id] = list(links)
 
         recorded_by_lesson: Dict[str, set] = {}
+        # lesson_key -> checkpoint count when its review was completed
+        review_count_by_lesson: Dict[str, int] = {}
         for row in self.session.exec(
             select(CheckpointProgress).where(
                 (CheckpointProgress.user_name == user.name)
@@ -307,6 +309,8 @@ class LessonManager:
             )
         ).all():
             recorded_by_lesson.setdefault(row.lesson_key, set()).add(row.checkpoint_index)
+            if row.checkpoint_index == REVIEW_CHECKPOINT_INDEX and row.lesson_checkpoint_count:
+                review_count_by_lesson[row.lesson_key] = row.lesson_checkpoint_count
 
         result = []
         first_incomplete_found = False
@@ -337,6 +341,13 @@ class LessonManager:
             checkpoint_count = len(checkpoint_chunks)
             recorded = recorded_by_lesson.get(g["lesson_key"], set())
             passed = passed_checkpoint_indices(checkpoint_chunks, recorded)
+            # A lesson whose review was completed against N checkpoints stays
+            # completed if words were later added/removed (re-chunking would
+            # otherwise un-pass shifted indices), provided all N of its
+            # checkpoints were recorded back then.
+            n_then = review_count_by_lesson.get(g["lesson_key"])
+            if n_then and set(range(n_then)) <= recorded:
+                passed = set(range(checkpoint_count))
             checkpoint_index = current_checkpoint_index(checkpoint_count, passed)
             all_points_passed = checkpoint_count > 0 and len(passed) == checkpoint_count
             # The review node counts as passed once a review session for

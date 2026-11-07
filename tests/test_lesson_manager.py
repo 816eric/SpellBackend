@@ -1,5 +1,5 @@
 import pytest
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, SQLModel, create_engine, select
 from sqlmodel.pool import StaticPool
 
 from src.services.lesson_manager import LessonManager
@@ -17,7 +17,7 @@ def session_fixture():
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
-    from src.models import user, tag, word, link, review_state  # noqa: F401
+    from src.models import user, tag, word, link, review_state, checkpoint_progress  # noqa: F401
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
         yield session
@@ -397,3 +397,34 @@ def test_lesson_with_a_spell_date_lists_without_error_and_flags_the_soonest_upco
 
     upcoming = [l["lesson_key"] for l in lessons if l["is_upcoming"]]
     assert upcoming == ["Week3"]
+
+
+def test_completed_lesson_stays_completed_when_words_are_added_later(session: Session):
+    from src.models.checkpoint_progress import CheckpointProgress
+    user = User(name="TESTUSER", grade="P1")
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    _make_lesson(session, user, "Week1", 1, "EN", [f"w{i}" for i in range(10)], [])  # 2 checkpoints
+    _make_lesson(session, user, "Week2", 1, "EN", ["x", "y"], [])
+    for idx in (0, 1, -1):
+        session.add(CheckpointProgress(
+            user_name=user.name, subject="EN", lesson_key="Week1",
+            checkpoint_index=idx, lesson_checkpoint_count=2,
+        ))
+    session.commit()
+    # Words are added later -> 3 checkpoints (13 words)
+    tag = session.exec(select(Tag).where(Tag.tag.like("%Week1"))).first()
+    for i in range(3):
+        w = SpellingWord(text=f"extra{i}", language="english", created_by="1")
+        session.add(w)
+        session.commit()
+        session.refresh(w)
+        session.add(WordTagLink(word_id=w.id, tag_id=tag.id))
+    session.commit()
+
+    by_key = {l["lesson_key"]: l for l in LessonManager(session).list_lessons_for_user(user, "EN")}
+
+    assert by_key["Week1"]["checkpoint_count"] == 3
+    assert by_key["Week1"]["status"] == "completed"
+    assert by_key["Week2"]["status"] == "current"

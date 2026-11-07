@@ -80,6 +80,11 @@ def init_db():
             conn.execute("ALTER TABLE usersetting ADD COLUMN spelling_prefs VARCHAR;")
             conn.commit()
 
+        checkpoint_columns = {row[1] for row in conn.execute("PRAGMA table_info(checkpointprogress);")}
+        if checkpoint_columns and "lesson_checkpoint_count" not in checkpoint_columns:
+            conn.execute("ALTER TABLE checkpointprogress ADD COLUMN lesson_checkpoint_count INTEGER;")
+            conn.commit()
+
         existing_review_state_columns = {row[1] for row in conn.execute("PRAGMA table_info(reviewstate);")}
         if "fail_count" not in existing_review_state_columns:
             conn.execute("ALTER TABLE reviewstate ADD COLUMN fail_count INTEGER DEFAULT 0;")
