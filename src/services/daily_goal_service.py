@@ -13,7 +13,11 @@ DAILY_GOALS = [
     {"kind": "moe", "title": "Chinese word cards session", "icon": "🈶", "target": 1, "unit": "session", "required": True},
     {"kind": "math", "title": "AI Math", "icon": "🔢", "target": 10 * 60, "unit": "seconds", "required": False},
 ]
-_KINDS = {g["kind"] for g in DAILY_GOALS}
+# Not goals: `practice` accumulates seconds spent in spelling study sessions;
+# `practice_base` is the practice total at the moment the first round was
+# completed (the first 10 minutes of game time cover that practice).
+_KINDS = {g["kind"] for g in DAILY_GOALS} | {"practice"}
+_REQUIRED = [g for g in DAILY_GOALS if g["required"]]
 
 
 def _today() -> str:
@@ -33,11 +37,34 @@ def record_activity(session: Session, user_name: str, kind: str, amount: int = 1
         row = DailyActivity(user_name=key[0], day=key[1], kind=kind, amount=amount)
     session.add(row)
     session.commit()
+    if kind != "practice":
+        _snapshot_practice_base(session, user_name)
 
 
-# Every full pass over the required goals ("round") earns 10 minutes of game
-# time, and the first pass earns two blocks - so 1 round = 20 min, 2 = 30 ...
+def _amount(session: Session, user_name: str, kind: str):
+    row = session.get(DailyActivity, (user_name, _today(), kind))
+    return row.amount if row else None
+
+
+def _snapshot_practice_base(session: Session, user_name: str) -> None:
+    """When the required goals are first all met today, remember how much
+    practice time had been logged by then: that practice paid for the first
+    10 minutes of game time, so only practice after this point earns more."""
+    if _amount(session, user_name, "practice_base") is not None:
+        return
+    if all((_amount(session, user_name, g["kind"]) or 0) >= g["target"] for g in _REQUIRED):
+        session.add(DailyActivity(
+            user_name=user_name, day=_today(), kind="practice_base",
+            amount=_amount(session, user_name, "practice") or 0,
+        ))
+        session.commit()
+
+
+# Completing the required goals the first time earns 10 minutes of game time.
+# Every further full pass ("round") earns game time equal to the spelling
+# practice time since the previous one, but always under 10 minutes.
 PLAYTIME_BLOCK_SECONDS = 10 * 60
+MAX_EXTRA_PER_ROUND_SECONDS = PLAYTIME_BLOCK_SECONDS - 1
 # Test accounts (User.is_tester) are never gated or capped.
 TESTER_PLAYTIME_SECONDS = 24 * 60 * 60
 
@@ -70,7 +97,14 @@ def get_status(session: Session, user_name: str) -> dict:
         goals.append({**g, "progress": progress, "done": progress >= g["target"]})
 
     tester = _is_tester(session, user_name)
-    limit = PLAYTIME_BLOCK_SECONDS * (rounds + 1) if rounds >= 1 else 0
+    limit = 0
+    if rounds >= 1:
+        practice = _amount(session, user_name, "practice") or 0
+        base = _amount(session, user_name, "practice_base")
+        if base is None:  # day predates tracking: no practice credit
+            base = practice
+        extra = min(max(0, practice - base), (rounds - 1) * MAX_EXTRA_PER_ROUND_SECONDS)
+        limit = PLAYTIME_BLOCK_SECONDS + extra
     return {
         "goals": goals,
         "rounds": rounds,

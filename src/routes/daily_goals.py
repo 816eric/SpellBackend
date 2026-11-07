@@ -40,6 +40,15 @@ def report_math_time(user_name: str, seconds: int, session: Session = Depends(ge
     return svc.get_status(session, user.name)
 
 
+@router.post("/practice-time")
+def report_practice_time(user_name: str, seconds: int, session: Session = Depends(get_session_dep)):
+    """Client reports the seconds a spelling study session took; after the
+    first 10 minutes of game time, this practice time is what earns more."""
+    user = _get_user(user_name, session)
+    svc.record_activity(session, user.name, "practice", max(0, min(seconds, 1800)))
+    return svc.get_status(session, user.name)
+
+
 @router.post("/practice")
 def complete_practice(user_name: str, subject: str, session: Session = Depends(get_session_dep)):
     """Client reports a finished free-practice session (a completed lesson,
